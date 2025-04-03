@@ -1,0 +1,82 @@
+# iTunes / Apple Music Migration to Jellyfin &mdash; with playlists!
+
+## Introduction
+
+This guide is for MacOS users who use the iTunes Store to *download* music, instead of using Apple's streaming service, Apple Music. Although the app formerly known as iTunes was renamed to Music, I will retain the old name here for simplicity.
+
+Long-time iTunes users may be familiar with the (now legacy) service <b>iTunes Match</b>, which allows users to back up non-iTunes songs to Apple's cloud to be a part of the same library. Since this service is on the way out, some songs simply get dropped (especially rare ones). I recently got burned on this, inspiring me to make the migration from iTunes to my own server, using software designed for the purpose of keeping my music, not renting out space to me for the convenience. 
+
+One of the most common music server software options I saw mentioned was [Jellyfin](https://jellyfin.org/); it looks nice, and has plenty of support and documentation, so that's what I chose for the migration target. There was almost no documentation on how to migrate to Jellyfin from iTunes, however, especially if you want to <b>preserve your playlists</b>, so this repo serves to fill that gap, with both a walk-through and custom-made tools to get the job done.
+
+## My setup
+
+Here was the technology I was working with as I went through this migration, for context:
+
+| Computer | Make/Model | RAM | Hard Drive | OS |
+|-----|-----|-----|-----|-----|
+| **Source computer** | [MacBook Air (2015)](https://support.apple.com/en-us/112441) | 8GB | 128 GB | MacOS Big Sur |
+| **Server** | [HP ProBook 640 G1](https://icecat.biz/p/hp/h5g66et/probook-notebooks-0888182270424-640+g1-20694735.html) | 16 GB (upgraded) | 500 GB |Arch Linux |
+
+## The Process
+
+### Step 1 &mdash; Download your entire library to an external drive
+
+1. From the top bar, select **View > Show Status Bar**. This will add a bar at the bottom of the window with the size of your library in term of computer memory (GB, MB, etc.). Make sure your disk has at least this much space.
+
+2. Point your iTunes library folder to your external drive by going into **Preferences > Files**, and selecting **"Choose Folder"** to the right of the box with the current filepath. 
+
+3. Make sure **"Keep Files Organized" is checked**; this gives the downloads a reliable directory structure we'll need later.
+
+4. Select all songs in your library, right-click, then hit **Download**. This could take a long time: on my MacBook Air, songs downloaded at a rate of about 50 songs/min, so it took around 3 hours to download the over 10k songs I had.
+
+### Step 2 &mdash; Generate .m3u playlist files
+
+Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playlists, which are simply text files with one filepath to a song for each song in the playlist, one filepath on each line.  
+
+1. Export your iTunes library by selecting **File > Library > Export Library...** It's best if you send the file to the directory where this README is, but you can put it wherever you like. Just note the filepath to the place you put it (we'll need it later).
+
+2. Copy this XML file (called `Library.xml` by default) onto the hard drive.
+
+### Step 3 &mdash; Copy files to server
+
+1. (You can skip this step if your server has the same OS type and version as your source machine). Check the **filesystem type on your external hard drive**. On a Mac, this can be seen by bringing up your drive on the Disk Utility app. The filesystem name will be next to the name of your drive. Older Macs tend to have a HFS+ filesystem (Hierarchical File System Plus), while newer ones tend to have APFS filesystems (Apple File System). 
+
+2. Eject the drive from the source. Make sure this completes safely.
+
+3. Mount the drive on the server, making sure to use a utility that can interpret the drive's filesystem into your server's filesystem. Below are some resources that can help:
+    - [HFS+ to Linux](https://superuser.com/questions/84446/how-to-mount-a-hfs-partition-in-ubuntu-as-read-write) (for Ubuntu, but should point you in the right direction for your distro)
+    - [HFS+ to Windows](https://www.provideocoalition.com/use-mac-drive-on-pc/)
+    - [APFS to Linux](https://github.com/sgan81/apfs-fuse) (it's a GitHub repo; have fun!)
+    - [APFS to Windows](https://www.paragon-software.com/home/apfs-windows/)
+
+4. **Copy the files** into a directory of your choice
+
+5. On your command line, clone this repo, and enter the cloned directory:
+    ```
+    git clone https://github.com/lmr97/itunes-to-jellyfin/
+    cd itunes-to-jellyfin
+    ```
+
+6. Install the `lxml` module (the only dependency) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
+
+7. Now you can run the program:
+    ```
+    python3 xml-to-m3u.py \
+        -x <path to Library.xml> \
+        -m <path to music dir on server> \
+        -p <directory for playlist M3Us>
+    ```
+    Or if you're using a virtual environment:
+    ```
+    <path to venv>/bin/python3 xml-to-m3u.py \
+        -x <path to Library.xml> \
+        -m <path to music dir on server> \
+        -p <directory for playlist M3Us>
+    ```
+    *Note*: `xml-to-m3u.py` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place them in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    
+    You can run `python3 xml-to-m3u.py -h` to see all available options. 
+
+### Step 4 &mdash; Install Jellyfin
+
+### Step 5 &mdash; Add music and playlists to Jellyfin
