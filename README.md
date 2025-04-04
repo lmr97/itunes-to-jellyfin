@@ -49,17 +49,17 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
     - [APFS to Linux](https://github.com/sgan81/apfs-fuse) (it's a GitHub repo; have fun!)
     - [APFS to Windows](https://www.paragon-software.com/home/apfs-windows/)
 
-4. **Copy the files** into a directory of your choice
+4. **Copy the files** into a directory of your choice on the server.
 
-5. On your command line, clone this repo, and enter the cloned directory:
+5. On your command line, **clone this repo**, and enter the cloned directory:
     ```
     git clone https://github.com/lmr97/itunes-to-jellyfin/
     cd itunes-to-jellyfin
     ```
 
-6. Install the `lxml` module (the only dependency) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
+6. Install the `lxml` module (if you don't have it already) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. To check if you have it, run `pip show lxml`. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
 
-7. Now you can run the program:
+7. Now you can run playlist conversion program:
     ```
     python3 xml-to-m3u.py \
         -x <path to Library.xml> \
@@ -73,10 +73,33 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
         -m <path to music dir on server> \
         -p <directory for playlist M3Us>
     ```
-    *Note*: `xml-to-m3u.py` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place them in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    *Note*: `xml-to-m3u.py` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
     
     You can run `python3 xml-to-m3u.py -h` to see all available options. 
 
 ### Step 4 &mdash; Install Jellyfin
 
+For this step, see [Jellyfin's installation guide](https://jellyfin.org/docs/general/installation/) for instructions for your server setup.
+
 ### Step 5 &mdash; Add music and playlists to Jellyfin
+
+1. Point Jellyfin to your server's music directory by... [*to be filled in later*]
+
+2. Add in your playlists using the M3U files generated earlier by... [*to be filled in later*]
+
+## Syncing later downloads
+
+If you end up downloading more music on your source computer that you would like in your Jellyfin library, the Bash script `sync-new-dls` has you covered if you're on a Unix-like system. It's for sending anything downloaded to your (source) music directory later than a given time to your server, utilizing `rsync`. It has the following usage:
+
+```
+sync-new-dls [-h]  -t DL_TIME  -d SERVER_DEST
+```
+Option | Description
+------------ | ---------------
+`-t, --dl-time DL_TIME` | When (rather, just before) your the new files were downloaded. This program uses the GNU date utility, so it is very forgiving with the date format.
+`-d, --dest SERVER_DEST` |  The directory on the server into which the files are to be copied.
+`-r, --rsync-opts OPTS`  | (Optional) A quoted, space-delimited set of options to pass to `rsync`. For example: `-r "-a -z --config=../my-rsync.conf"` **Note**: in this program `rsync` is invoked with `-r` and `--progress`.
+`-h, --help` |  Print help text and exit.
+
+
+### Thanks for reading! I hope this helps with your great migration!
