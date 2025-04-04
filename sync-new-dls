@@ -17,16 +17,22 @@ print_help() {
 
   Usage:
 
-  send-new-dls [-h] -t DL_TIME -d SERVER_DEST
+  sync-new-dls [-h] -t DL_TIME -d SERVER_DEST [-r OPTS]
 
-    -t, --dl-time DL_TIME   When (rather, just before) your
-                            the new files were downloaded. This 
-                            program uses the GNU date utility, 
-                            so it is very forgiving with the 
-                            date format.
+    -t, --dl-time DL_TIME   When (rather, just before) your the new files were 
+                            downloaded. This program uses the GNU date utility, 
+                            so it is very forgiving with the date format.
 
-    -d, --dest SERVER_DEST  The directory on the server into 
-                            which the files are to be copied.
+    -d, --dest SERVER_DEST  The directory on the server into which the files 
+                            are to be copied.
+    
+    -r, --rsync-opts OPTS   (Optional) A quoted, space-delimited set of options 
+                            to pass to rsync. For example: 
+
+                                -r \"-a -z --stats --config=../my-rsync.conf\" 
+                            
+                            Note: in this program rsync is invoked with 
+                            -r and --progress.
 
     -h, --help              Print this help text and exit.
 
@@ -36,7 +42,7 @@ print_help() {
 # process command line args. The part of the script that does so
 # is modified from the one found here: 
 # https://stackoverflow.com/a/7948533
-TEMP=$(getopt -o t:d:h --long dl-time:,dest:,help -n 'sync-new-dls' -- "$@")
+TEMP=$(getopt -o t:d:hr: --long dl-time:,dest:,rsync-opts:,help -n 'sync-new-dls' -- "$@")
 
 if [ $? != 0 ]
 then 
@@ -48,18 +54,18 @@ eval set -- "$TEMP"
 
 DL_TIME=
 SERVER_DEST=
+RSYNC_OPTS=
 while true; do
   case "$1" in
-    -t | --dl-time ) DL_TIME=$(date -d "$2"); shift 2 ;;
-	  -d | --dest )    SERVER_DEST="$2"; shift 2 ;;
-    -h | --help )    print_help; exit 0 ;;
+    -t | --dl-time )   DL_TIME=$(date -d "$2"); shift 2 ;;
+	  -d | --dest )      SERVER_DEST="$2"; shift 2 ;;
+    -r | --rsync-opts) RSYNC_OPTS="$2"; shift 2 ;;
+    -h | --help )      print_help; exit 0 ;;
     -- ) shift; break ;;
     * ) print_help; echo "Error: option $1 is invalid." >&2; exit 1 ;;
   esac
 done
 
-echo $DL_TIME
-echo $SERVER_DEST
 
 IFS=$'\n'               # use newline as element delimiter in list, not space
 mkdir -p staging_temp   # for gathering files, so rsync can send all files at once
@@ -76,13 +82,20 @@ do
 
 done
 
-# send off the contents of staging_temp to server
-rsync -r --progress staging_temp/ "$SERVER_DEST"
+unset IFS  # need to unset so Bash can parse rsync options correctly
 
-if [ $? = 0 ]; then echo -e "\n\e[0;32mSync complete! \e[0m Cleaning up..."; fi
+# send off the contents of staging_temp to server
+rsync -r --progress $RSYNC_OPTS staging_temp/ "$SERVER_DEST"
+
+if [ $? = 0 ]
+then 
+  echo -e "\n\e[0;32mSync complete! \e[0m Cleaning up..."
+else
+  echo -e "\n\e[0;31mrsync failed\e[0m with the above error."
+  exit 1
+fi
 # clean up after itself
 rm -r staging_temp
-unset IFS
 
 echo "Done!"
 
