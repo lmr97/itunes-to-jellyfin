@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# This is for anyone who, like me, still wants to use iTunes,
+# or downloads music anywhere but the server, and needs to 
+# synchronize their source and server.
+
+print_help() {
+  echo "\
+
+  This utility finds all the audio files downloaded (on the 
+  source computer in \$MUSIC_DIR (from environment) after a 
+  given date/time, and copies them to the given destination 
+  using \`rsync\`, replicating the directory structure of 
+  Artist/Album/Song at the destination, and sorting songs into
+  existing directories appropriately. New directories will 
+  be made if necessary.
+
+  Usage:
+
+  send-new-dls [-h] -t DL_TIME -d SERVER_DEST
+
+    -t, --dl-time DL_TIME   When (rather, just before) your
+                            the new files were downloaded. This 
+                            program uses the GNU date utility, 
+                            so it is very forgiving with the 
+                            date format.
+
+    -d, --dest SERVER_DEST  The directory on the server into 
+                            which the files are to be copied.
+
+    -h, --help              Print this help text and exit.
+
+  "
+}
+
+# process command line args. The part of the script that does so
+# is modified from the one found here: 
+# https://stackoverflow.com/a/7948533
+TEMP=$(getopt -o t:d:h --long dl-time:,dest:,help -n 'sync-new-dls' -- "$@")
+
+if [ $? != 0 ]
+then 
+	echo "Error in parsing CLI arguments.Terminating..." >&2
+	exit 1
+fi
+
+eval set -- "$TEMP"
+
+DL_TIME=
+SERVER_DEST=
+while true; do
+  case "$1" in
+    -t | --dl-time ) DL_TIME=$(date -d "$2"); shift 2 ;;
+	  -d | --dest )    SERVER_DEST="$2"; shift 2 ;;
+    -h | --help )    print_help; exit 0 ;;
+    -- ) shift; break ;;
+    * ) print_help; echo "Error: option $1 is invalid." >&2; exit 1 ;;
+  esac
+done
+
+echo $DL_TIME
+echo $SERVER_DEST
+
+IFS=$'\n'               # use newline as element delimiter in list, not space
+mkdir -p staging_temp   # for gathering files, so rsync can send all files at once
+
+# get all files in the music directory modified after the date 
+# given on the command line, and copy them to a temporary directory
+# called "staging_temp"
+for song in $(find "$MUSIC_DIR" -newermt "$DL_TIME" -type f)
+do
+  temp_dest=${song/"$MUSIC_DIR"/staging_temp}  # replace $MUSIC_DIR with $SERVER_DEST
+
+  mkdir -p $(dirname "$temp_dest")   # make enclosing folders if needed
+  cp "$song" "$temp_dest"
+
+done
+
+# send off the contents of staging_temp to server
+rsync -r --progress staging_temp/ "$SERVER_DEST"
+
+if [ $? = 0 ]; then echo -e "\n\e[0;32mSync complete! \e[0m Cleaning up..."; fi
+# clean up after itself
+rm -r staging_temp
+unset IFS
+
+echo "Done!"
+
+
