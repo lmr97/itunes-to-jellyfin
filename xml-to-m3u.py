@@ -83,7 +83,7 @@ def print_progress_bar(rows_now: int, total_rows: int, func_start_time: datetime
             (output_width - bar_width_now) * " ", "|",
             f"{completion:.0%}  ",
             f"Time remaining: {minutes:02d}:{seconds:02d}",
-            end = "")
+            end = "\r")
 
 
 # Most of the following are very simple functions, but I thought 
@@ -163,11 +163,14 @@ def lookup_song(track_id_el: etree.Element,
     return track
 
 
+# TODO: Update replacement logic with MacOS strategy
+
 def slash_sanitize(entry: str, dir_separator: str) -> str:
     """
     This function substitutes the occurence of a directory
-    separator in a string, so it doesn't confuse the OS 
-    when a part of a path.
+    separator in a string for what MacOS does when it encounters
+    the same thing. This is so the given string doesn't confuse 
+    the OS when it's a part of a path.
     """
     if dir_separator not in entry:
         return entry
@@ -244,7 +247,7 @@ def parse_xml(cli_opts: dict):
         # This requires the user to delete the existing playlist files,
         # preventing accidental overwrites.
         if os.path.exists(pl_filepath):
-            print(f"\n\"{pl_name}.m3u\" exists in {cli_opts['playlist_dir']}, skipping...")
+            print(f"\"{pl_name}.m3u\" exists in {cli_opts['playlist_dir']}, skipping...")
             continue
 
 
@@ -308,19 +311,26 @@ def parse_cli_args() -> dict:
     Here are the options parsed for, and their descriptions
 
     -x XMLFILE        Filepath to Library.xml. Assumed to be in working directory if omitted. 
+
     -m SVR_MUSIC_DIR  Filepath to the directory where iTunes audio files are stored on
                       the server, added to make M3U paths absolute. If omitted, all paths will 
                       be relative.
+
     -p PLAYLIST_DIR   The directory where you would like your playlist files stored. 
                       If omitted, a directory named "Playlists" will be filled with these files 
                       in the working directory.
+
     -c {warn, error,  Check if song file at inferred path exists, and either warn or throw an 
         none}         error. Default: warn. Ignored if -m is absent. (cannot check path reliably)
-    -w                Use MSDOS (Windows) filepath conventions (backslash file separator)
+        
+    -w                Use MSDOS (Windows) filepath conventions (backslash file separator).
+
     -f                Flat music directory: all music files are in the same directory, without 
                       any folders between the file and the music directory root. With this option, 
                       all paths are relative only to the music directory root.
+
     -t                Show mapping of file types to file extensions used in the program and exit.
+
     -h                Display this help info and exit. (-h is added in ArgumentParser by default)
     """
     ap = ArgumentParser(
@@ -413,12 +423,10 @@ def show_ext_map():
 
 def ensure_slash(opts: dict) -> dict:
     """
-    Makes sure the directory paths provided 
-    by the user end with the OS-appropriate 
-    slash. This makes assembling the paths 
-    much easier, since I can simply prepend
-    it to the rest of the path regardless of
-    whether it is null or not.
+    Makes sure the directory paths provided by the user end 
+    with the OS-appropriate slash. This makes assembling the 
+    paths much easier, since I can simply prepend it to the 
+    rest of the path regardless of whether it is null or not.
     """
     fp_slash = "/"
     if opts['use_dos_filepaths']:
@@ -462,14 +470,13 @@ def main():
     except FileNotFoundError as fnfe:
 
         print(f"\033[0;31mError encountered\033[0m: {repr(fnfe)}")
-        print("Note: this error can be thrown if the file exists, but \
-            was given the wrong extension by this program. To display \
-            the way this program maps file types to extensions, \
-            execute the program with the -t flag.\n")
-        print("If you would like the program to continue running even \
-            when a music file is not found, execute the program with \
-            either `-e warn` or `-e none`.\n")
-        print("Terminating...")
+        print(("\033[0;33mNote\033[0m: this error can be thrown if the file exists, "
+            "but was given the wrong extension by this program. To display the way "
+            "this program maps file types to extensions, execute the program "
+            "with the -t flag.\n"))
+        print(("If you would like the program to continue running even when a music "
+            "file is not found, execute the program with either `-c warn` or `-c none`.\n"))
+        print("\033[0;31mTerminating on error...\033[0m")
 
         sys.exit(2)     # Linux ENOENT exit status
 
