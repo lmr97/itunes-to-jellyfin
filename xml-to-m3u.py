@@ -30,16 +30,18 @@ and all songs are in these release subfolders. An example organization would be:
     │       └── Sakura Bat (Live).mp3
     └── Jane Shepard
         └── Greatest Hits
-            ├── Bring this Galaxy Together.ogg
-            └── To the Rescue (Again).mp4
+            ├── Renegade.ogg
+            └── All Tuchanka is Green.mp4
 
 If all your music files are in the same folder, without any (note: iT/AM 
 does not download music this way by default, but it can).
 
 NOTE: This program does not support playlist folders, because the relationships
-between playlists and their enclosing folder is not clear in the XML. Playlist
-folders in the XML appear as the union of the tracks in their constituent playlists.
-Playlist folders have to be remade manually in Jellyfin.
+between playlists and their enclosing folder is not clear in iTunes' XML output. 
+Playlist folders in the XML appear as simply the union of the tracks in their  
+constituent playlists, so it would be prohibitively slow to compute which
+playlists belong to a given folder so defined. Playlist folders have to be remade 
+manually in Jellyfin, if supported.
 """
 
 import sys
@@ -84,10 +86,11 @@ def print_progress_bar(rows_now: int, total_rows: int, func_start_time: datetime
             end = "")
 
 
-# Most of the following are simply wrapper functions
-# to make the code easier to read.
+# Most of the following are very simple functions, but I thought 
+# wrapping the code in functions makes parse_xml() 
+# easier to read than a ton of comments.
 
-def get_song_element(tracks_el: etree.ElementBase, track_id: str) -> etree.ElementBase:
+def get_song_element(tracks_el: etree.Element, track_id: str) -> etree.Element:
     """
     Get song element from the tracks <dict>
     """
@@ -100,7 +103,7 @@ def get_song_element(tracks_el: etree.ElementBase, track_id: str) -> etree.Eleme
     return el_list[0]
 
 
-def get_file_ext(song_el: etree.ElementBase, dir_sep) -> str:
+def get_file_ext(song_el: etree.Element, dir_sep) -> str:
     """
     Get file extension given file type.
     """
@@ -118,7 +121,7 @@ def get_file_ext(song_el: etree.ElementBase, dir_sep) -> str:
     return file_ext
 
 
-def get_str_attr(el: etree.ElementBase, attr: str, dir_sep: str):
+def get_str_attr(el: etree.Element, attr: str, dir_sep: str):
     """
     Get any attribute of the song or playlist held in a <string> element. 
     
@@ -148,8 +151,8 @@ def get_str_attr(el: etree.ElementBase, attr: str, dir_sep: str):
     return slash_sanitize(string_el_list[0].text, dir_sep)
 
 
-def lookup_song(track_id_el: etree.ElementBase, 
-                tracks_el: etree.ElementBase) -> etree.ElementBase:
+def lookup_song(track_id_el: etree.Element, 
+                tracks_el: etree.Element) -> etree.Element:
     """
     Uses a track ID element from a playlist to get the song info
     out of the all-tracks element.
@@ -171,6 +174,17 @@ def slash_sanitize(entry: str, dir_separator: str) -> str:
     else:
         # this is the logic MacOS uses when downloading music
         return entry.replace(dir_separator, " - ")
+
+
+def is_folder(playlist: etree.Element) -> bool:
+    """
+    Check whether the playlist is a folder or not.
+    """
+    results = playlist.xpath("key[text()='Folder']")
+
+    # playlists that are not folders do not have a <key>
+    # with "Folder" for its text content.
+    return (len(results) > 0)
 
 
 def parse_xml(cli_opts: dict):
@@ -200,13 +214,18 @@ def parse_xml(cli_opts: dict):
     # "Playlists" that are all/most of the library, and are not user-generated.
     pl_ignores      = ["Library", "Downloaded", "Music"]
 
+
     """
     Iterate over playlists
     """
-    print("Starting conversion...")
+    print("Starting conversion...\n")
     for i, pl in enumerate(playlists):
 
         if get_str_attr(pl, "Name", dir_sep) in pl_ignores:
+            continue
+
+        # skip playlist folders. see header.
+        if is_folder(pl):
             continue
 
         pl_tracks   = pl.findall("array/dict") # list of track IDs
@@ -227,6 +246,7 @@ def parse_xml(cli_opts: dict):
         if os.path.exists(pl_filepath):
             print(f"\n\"{pl_name}.m3u\" exists in {cli_opts['playlist_dir']}, skipping...")
             continue
+
 
         """
         Iterate over tracks of playlist
