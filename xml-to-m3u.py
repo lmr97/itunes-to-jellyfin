@@ -215,9 +215,9 @@ def parse_xml(cli_opts: dict):
     pl_ignores      = ["Library", "Downloaded", "Music"]
 
 
-    """
-    Iterate over playlists
-    """
+    #########
+    # Iterate over playlists
+    #########
     print("Starting conversion...\n")
     for i, pl in enumerate(playlists):
 
@@ -248,15 +248,13 @@ def parse_xml(cli_opts: dict):
             continue
 
 
-        """
-        Iterate over tracks of playlist
-        """
+        #########
+        # Iterate over tracks of playlist
+        #########
         for tr_id_el in pl_tracks:
 
             tr = lookup_song(tr_id_el, all_tracks)
-            # print(i)
-            # print("\n")
-            # print(etree.tostring(tr))
+
             # check ext first, because that will allow a song to be skipped
             extension = get_file_ext(tr, dir_sep)
             if not extension:
