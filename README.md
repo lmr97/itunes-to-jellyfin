@@ -17,6 +17,8 @@ Here was the technology I was working with as I went through this migration, for
 | **Source computer** | [MacBook Air (2015)](https://support.apple.com/en-us/112441) | 8GB | 128 GB | MacOS Big Sur |
 | **Server** | [HP ProBook 640 G1](https://icecat.biz/p/hp/h5g66et/probook-notebooks-0888182270424-640+g1-20694735.html) | 16 GB (upgraded) | 500 GB |Arch Linux |
 
+While I've tried to not leave Windows users out in the cold on this one, my experience, as you can see, is with a Mac, migrating to a Linux system, so that's what this guide will work best for.
+
 ## The Process
 
 ### Step 1 &mdash; Download your entire library to an external drive
@@ -33,7 +35,7 @@ Here was the technology I was working with as I went through this migration, for
 
 Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playlists, which are simply text files with one filepath to a song for each song in the playlist, one filepath on each line.  
 
-1. Export your iTunes library by selecting **File > Library > Export Library...** It's best if you send the file to the directory where this README is, but you can put it wherever you like. Just note the filepath to the place you put it (we'll need it later).
+1. Export your iTunes library by selecting **File > Library > Export Library...** 
 
 2. Copy this XML file (called `Library.xml` by default) onto the hard drive.
 
@@ -41,9 +43,9 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
 
 1. (You can skip this step if your server has the same OS type and version as your source machine). Check the **filesystem type on your external hard drive**. On a Mac, this can be seen by bringing up your drive on the Disk Utility app. The filesystem name will be next to the name of your drive. Older Macs tend to have a HFS+ filesystem (Hierarchical File System Plus), while newer ones tend to have APFS filesystems (Apple File System). 
 
-2. Eject the drive from the source. Make sure this completes safely.
+2. **Eject the drive** from the source. Make sure this completes safely.
 
-3. Mount the drive on the server, making sure to use a utility that can interpret the drive's filesystem into your server's filesystem. Below are some resources that can help:
+3. **Mount the drive** on the server, making sure to use a utility that can interpret the drive's filesystem into your server's filesystem. Below are some resources that can help:
     - [HFS+ to Linux](https://superuser.com/questions/84446/how-to-mount-a-hfs-partition-in-ubuntu-as-read-write) (for Ubuntu, but should point you in the right direction for your distro)
     - [HFS+ to Windows](https://www.provideocoalition.com/use-mac-drive-on-pc/)
     - [APFS to Linux](https://github.com/sgan81/apfs-fuse) (it's a GitHub repo; have fun!)
@@ -57,9 +59,9 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
     cd itunes-to-jellyfin
     ```
 
-6. Install the `lxml` module (if you don't have it already) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. To check if you have it, run `pip show lxml`. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
+6. **Install the `lxml` Python module** (if you don't have it already) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. To check if you have it, run `pip show lxml`. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
 
-7. Now you can run playlist conversion program:
+7. Now you can **run playlist conversion program**:
     ```
     python3 xml-to-m3u.py \
         -x <path to Library.xml> \
