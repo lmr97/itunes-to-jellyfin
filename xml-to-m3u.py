@@ -179,16 +179,16 @@ def sanitize(entry: str) -> str:
     return entry
 
 
-def get_artist(tr):
+def get_album_artist(tr):
 
-    artist  = get_str_attr(tr, "Artist")
-    comp_el = tr.xpath("key[text()='Compilation']")
+    album_artist = get_str_attr(tr, "Album Artist")
+    compil_elem  = tr.xpath("key[text()='Compilation']")
 
-    # when a track is a part of a compilation, 
-    if comp_el:
+    # when a track is a part of a compilation
+    if compil_elem:
         return "Compilation"
     else:
-        return artist
+        return album_artist
 
 def get_track_num(tr: etree.Element) -> str:
     """
@@ -312,7 +312,7 @@ def parse_xml(cli_opts: dict):
             path      = ""
 
             if not cli_opts['flat_music_dir']:
-                artist = get_artist(tr)
+                artist = get_album_artist(tr)          # album artist is needed
                 album  = get_str_attr(tr, "Album")
                 path   = cli_opts['music_dir'] \
                             + dir_sep.join([artist, album, track_num + title]) \
