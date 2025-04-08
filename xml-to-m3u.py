@@ -376,7 +376,7 @@ def parse_xml(cli_opts: dict):
         print_progress_bar(i+1, total_playlists, proc_start)
 
     # print this regardless
-    print(f"Tracks not found:     {tracks_not_found}     / {len(all_tracks.find("dict"))}")
+    print(f"\n\nTracks not found:     {tracks_not_found}     / {len(all_tracks.findall("dict"))}")
     print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
 
 
