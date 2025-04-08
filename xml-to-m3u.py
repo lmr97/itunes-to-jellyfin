@@ -171,10 +171,13 @@ def sanitize(entry: str) -> str:
         if char in entry:
             entry = entry.replace(char, "_")
 
-    # Mac also doesn't like terminal periods (.);
+    # Mac also doesn't like initial or terminal periods (.);
     # ones in the middle of the entry are fine
     if entry[-1] == ".":
         entry = entry[:-1] + "_"
+    
+    if entry[0] == ".":
+        entry = "_" + entry[1:]
 
     return entry
 
@@ -224,7 +227,8 @@ def get_track_num(tr: etree.Element) -> str:
 
     if disc_count:
         if int(disc_count[0].text) > 1:
-            track_number = disc_count[0].text + "-"
+            disc_num = tr.xpath("key[text()='Disc Number']/following-sibling::integer[1]")
+            track_number = disc_num[0].text + "-"
 
     # list returned
     tr_num = tr.xpath("key[text()='Track Number']/following-sibling::integer[1]")
