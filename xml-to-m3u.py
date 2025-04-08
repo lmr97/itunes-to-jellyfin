@@ -328,8 +328,10 @@ def parse_xml(cli_opts: dict):
 
                         print("\n\033[0;33mWarning\033[0m: unable to locate file:")
                         print(f"\t'{title}' by {get_str_attr(tr, "Artist")}")
-                        print(f"Expected it at: {path}")
+                        print(f"Expected it at: \"{path}\"")
                         print("\033[0;33mWarning\033[0m: song not added to playlist")
+
+                        continue
 
                 elif cli_opts['check_exists'] == "error":
 
@@ -339,7 +341,7 @@ def parse_xml(cli_opts: dict):
                 # no need to check if cli_opts['check_exists'] == "none",
                 # because we wouldn't do anything in that
 
-            # gets here if cli_opts['check_exists'] is "warn" or "none"
+            # gets here if cli_opts['check_exists'] is "none"
             track_paths.append(path)
 
         with open(pl_filepath, "x", encoding='utf-8') as pl_file:
