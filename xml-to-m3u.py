@@ -212,7 +212,20 @@ def get_track_num(tr: etree.Element) -> str:
     """
     Gets track number if it exists and zero-pads it to a 
     width of 2, and adds a space if a track number exists.
+
+    If the track comes from an album with multiple discs,
+    then th track's disc number is prepended to the track
+    number, with a hyphen in between.
     """
+
+    track_number = ""
+    # check for multi-disc album
+    disc_count = tr.xpath("key[text()='Disc Count']/following-sibling::integer[1]")
+
+    if disc_count:
+        if int(disc_count[0].text) > 1:
+            track_number = disc_count[0].text + "-"
+
     # list returned
     tr_num = tr.xpath("key[text()='Track Number']/following-sibling::integer[1]")
 
@@ -220,11 +233,11 @@ def get_track_num(tr: etree.Element) -> str:
 
         # we're only padding to a width of 2, so it's simple to implement here
         if len(tr_num[0].text) == 1:
-            return ("0" + tr_num[0].text + " ")
+            track_number += "0" + tr_num[0].text + " "
         else:
-            return (tr_num[0].text + " ")        # space added for formatting
-    else:
-        return ""
+            track_number += tr_num[0].text + " "       # space added for formatting
+
+    return track_number
 
 
 def lookup_song(track_id_el: etree.Element, 
@@ -376,7 +389,7 @@ def parse_xml(cli_opts: dict):
         print_progress_bar(i+1, total_playlists, proc_start)
 
     # print this regardless
-    print(f"\n\nTracks not found:     {tracks_not_found}     / {len(all_tracks.findall("dict"))}")
+    print(f"\n\nTracks not found:     {tracks_not_found} / {len(all_tracks.findall("dict"))}")
     print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
 
 
