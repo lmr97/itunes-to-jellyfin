@@ -184,7 +184,7 @@ def get_folder_artist(tr):
     The directory in between the Music directory and the album
     directory denotes the artist, with the following precedence:
 
-    1. Compilation (if track is from compilation)
+    1. Compilations (if track is from compilation)
     2. Album Artist
     3. Track Artist
     4. "Unknown Artist"
@@ -197,7 +197,7 @@ def get_folder_artist(tr):
 
     # when a track is a part of a compilation
     if compil_elem:
-        return "Compilation"
+        return "Compilations"
 
     if album_artist:
         return album_artist
@@ -375,9 +375,9 @@ def parse_xml(cli_opts: dict):
 
         print_progress_bar(i+1, total_playlists, proc_start)
 
-        # print this regardless
-        print(f"Tracks not found:     {tracks_not_found}     / {len(all_tracks.find("dict"))}")
-        print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
+    # print this regardless
+    print(f"Tracks not found:     {tracks_not_found}     / {len(all_tracks.find("dict"))}")
+    print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
 
 
 
