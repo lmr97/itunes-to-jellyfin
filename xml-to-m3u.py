@@ -148,9 +148,7 @@ def get_str_attr(el: etree.Element, attr: str):
     # if the attr is missing, and happens to be Artist or Album,
     # it cannot be null. Otherwise it can be.
     if not string_el_list:
-        if attr == "Artist":
-            return "Unknown Artist"
-        elif attr == "Album":
+        if attr == "Album":
             return "Unknown Album"
         else:
             return ""
@@ -180,6 +178,17 @@ def sanitize(entry: str) -> str:
 
     return entry
 
+
+def get_artist(tr):
+
+    artist  = get_str_attr(tr, "Artist")
+    comp_el = tr.xpath("key[text()='Compilation']")
+
+    # when a track is a part of a compilation, 
+    if comp_el:
+        return "Compilation"
+    else:
+        return artist
 
 def get_track_num(tr: etree.Element) -> str:
     """
@@ -303,7 +312,7 @@ def parse_xml(cli_opts: dict):
             path      = ""
 
             if not cli_opts['flat_music_dir']:
-                artist = get_str_attr(tr, "Artist")
+                artist = get_artist(tr)
                 album  = get_str_attr(tr, "Album")
                 path   = cli_opts['music_dir'] \
                             + dir_sep.join([artist, album, track_num + title]) \
@@ -318,7 +327,7 @@ def parse_xml(cli_opts: dict):
                     if not os.path.exists(path):
 
                         print("\n\033[0;33mWarning\033[0m: unable to locate file:")
-                        print(f"\t'{title}' by {artist}")
+                        print(f"\t'{title}' by {get_str_attr(tr, "Artist")}")
                         print(f"Expected it at: {path}")
                         print("\033[0;33mWarning\033[0m: song not added to playlist")
 
