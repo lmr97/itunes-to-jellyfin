@@ -316,9 +316,9 @@ def parse_xml(cli_opts: dict):
                 album  = get_str_attr(tr, "Album")
                 path   = cli_opts['music_dir'] \
                             + dir_sep.join([artist, album, track_num + title]) \
-                            + extension + "\n"
+                            + extension
             else:
-                path = cli_opts['music_dir'] + dir_sep + track_num + title + extension + "\n"
+                path = cli_opts['music_dir'] + dir_sep + track_num + title + extension
 
             # validate filepaths, if requested, and music_dir is specified
             if cli_opts['music_dir']:
@@ -342,7 +342,7 @@ def parse_xml(cli_opts: dict):
                 # because we wouldn't do anything in that
 
             # gets here if cli_opts['check_exists'] is "none"
-            track_paths.append(path)
+            track_paths.append(path+"\n")
 
         with open(pl_filepath, "x", encoding='utf-8') as pl_file:
 
