@@ -318,7 +318,8 @@ def parse_xml(cli_opts: dict):
                     if not os.path.exists(path):
 
                         print("\n\033[0;33mWarning\033[0m: unable to locate file:")
-                        print(f"\t'{get_str_attr(tr,"Name")}' by {get_str_attr(tr, "Artist")}")
+                        print(f"\t'{title}' by {artist}")
+                        print(f"Expected it at: {path}")
                         print("\033[0;33mWarning\033[0m: song not added to playlist")
 
                 elif cli_opts['check_exists'] == "error":
