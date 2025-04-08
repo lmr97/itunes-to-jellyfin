@@ -315,9 +315,7 @@ def parse_xml(cli_opts: dict):
             if cli_opts['music_dir']:
                 if cli_opts['check_exists'] == "warn":
 
-                    check_path = path.replace(cli_opts['music_dir'], cli_opts['check_exists'])
-
-                    if not os.path.exists(check_path):
+                    if not os.path.exists(path):
 
                         print("\n\033[0;33mWarning\033[0m: unable to locate file:")
                         print(f"\t'{get_str_attr(tr,"Name")}' by {get_str_attr(tr, "Artist")}")
