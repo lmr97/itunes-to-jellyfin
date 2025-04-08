@@ -179,7 +179,18 @@ def sanitize(entry: str) -> str:
     return entry
 
 
-def get_album_artist(tr):
+def get_folder_artist(tr):
+    """
+    The directory in between the Music directory and the album
+    directory denotes the artist, with the following precedence:
+
+    1. Compilation (if track is from compilation)
+    2. Album Artist
+    3. Track Artist
+    4. "Unknown Artist"
+
+    This function returns the proper value for the track element.
+    """
 
     album_artist = get_str_attr(tr, "Album Artist")
     compil_elem  = tr.xpath("key[text()='Compilation']")
@@ -187,8 +198,15 @@ def get_album_artist(tr):
     # when a track is a part of a compilation
     if compil_elem:
         return "Compilation"
-    else:
+
+    if album_artist:
         return album_artist
+
+    track_artist = get_str_attr(tr, "Artist")
+    if track_artist:
+        return track_artist
+
+    return "Unknown Artist"
 
 def get_track_num(tr: etree.Element) -> str:
     """
@@ -312,7 +330,7 @@ def parse_xml(cli_opts: dict):
             path      = ""
 
             if not cli_opts['flat_music_dir']:
-                artist = get_album_artist(tr)          # album artist is needed
+                artist = get_folder_artist(tr)          # album artist is needed
                 album  = get_str_attr(tr, "Album")
                 path   = cli_opts['music_dir'] \
                             + dir_sep.join([artist, album, track_num + title]) \
