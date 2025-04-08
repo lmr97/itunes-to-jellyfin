@@ -280,6 +280,10 @@ def parse_xml(cli_opts: dict):
     # Create playlist directory if it doesn't exist
     os.makedirs(cli_opts['playlist_dir'], exist_ok=True)
 
+    # track missing tracks and altered playlists
+    tracks_not_found     = 0
+    playlists_incomplete = 0
+
     #########
     # Iterate over playlists
     #########
@@ -293,10 +297,11 @@ def parse_xml(cli_opts: dict):
         if is_folder(pl):
             continue
 
-        pl_tracks   = pl.findall("array/dict") # list of track IDs
-        track_paths = []
-        pl_name     = get_str_attr(pl, 'Name')
-        pl_filepath = cli_opts['playlist_dir'] + pl_name + ".m3u"
+        pl_incomplete = False
+        pl_tracks     = pl.findall("array/dict") # list of track IDs
+        track_paths   = []
+        pl_name       = get_str_attr(pl, 'Name')
+        pl_filepath   = cli_opts['playlist_dir'] + pl_name + ".m3u"
 
         # defaulting to not overwriting existing files.
         #
@@ -311,7 +316,6 @@ def parse_xml(cli_opts: dict):
         if os.path.exists(pl_filepath):
             print(f"\"{pl_name}.m3u\" exists in {cli_opts['playlist_dir']}, skipping...")
             continue
-
 
         #########
         # Iterate over tracks of playlist
@@ -339,34 +343,41 @@ def parse_xml(cli_opts: dict):
                 path = cli_opts['music_dir'] + dir_sep + track_num + title + extension
 
             # validate filepaths, if requested, and music_dir is specified
-            if cli_opts['music_dir']:
+            if not os.path.exists(path):
+
+                # always track, even when option is "none" (see print statments at end of function)
+                tracks_not_found += 1
+                pl_incomplete     = True
+
                 if cli_opts['check_exists'] == "warn":
 
-                    if not os.path.exists(path):
+                    print("\n\033[0;33mWarning\033[0m: unable to locate file:")
+                    print(f"\t'{title}' by {get_str_attr(tr, "Artist")}")
+                    print(f"Expected it at: \"{path}\"")
+                    print("\033[0;33mWarning\033[0m: song not added to playlist")
 
-                        print("\n\033[0;33mWarning\033[0m: unable to locate file:")
-                        print(f"\t'{title}' by {get_str_attr(tr, "Artist")}")
-                        print(f"Expected it at: \"{path}\"")
-                        print("\033[0;33mWarning\033[0m: song not added to playlist")
+                    continue
 
-                        continue
+                if cli_opts['check_exists'] == "error":
 
-                elif cli_opts['check_exists'] == "error":
+                    # don't need to worry about track misses and playlist completion,
+                    # since an error is raised when the first of either occurs
+                    raise FileNotFoundError(f"file {path} not found.")
 
-                    if not os.path.exists(path):
-                        raise FileNotFoundError(f"file {path} not found.")
-
-                # no need to check if cli_opts['check_exists'] == "none",
-                # because we wouldn't do anything in that
-
-            # gets here if cli_opts['check_exists'] is "none"
             track_paths.append(path+"\n")
+
+        if pl_incomplete:
+            playlists_incomplete += 1
 
         with open(pl_filepath, "x", encoding='utf-8') as pl_file:
 
             pl_file.writelines(track_paths)
 
         print_progress_bar(i+1, total_playlists, proc_start)
+
+        # print this regardless
+        print(f"Tracks not found:     {tracks_not_found}     / {len(all_tracks.find("dict"))}")
+        print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
 
 
 
@@ -473,7 +484,13 @@ def parse_cli_args() -> dict:
                         used in the program and exit."
                     )
 
-    return vars(ap.parse_args())
+    cli_args = vars(ap.parse_args())
+
+    # ignore file existence check response option if music_dir isn't specified
+    if not cli_args['music_dir']:
+        cli_args['check_exists'] = "none"
+
+    return cli_args
 
 
 def show_ext_map():
