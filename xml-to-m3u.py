@@ -1,24 +1,26 @@
 """
-A simple utility to generate .m3u files from an iTunes / Apple Music's
-exported Library file (XML).
+A utility to generate .m3u files from an iTunes / Apple Music exported 
+library file (Library.xml).
 
 The XML file that iTunes / Apple Music (iT/AM) exports as "Library.xml" has two
 major sections after the header: 
 
-    1. A list (<dict>) of all tracks in the library and their info (also 
+    1. A dictionary (<dict>) of all tracks in the library and their info (each 
        as <dict>s), with an ID number assigned to each. This ID functions
        as the <key>, and 
     2. A list (<array>) of playlists, composed of the IDs of the tracks they
        contain.
 
-This utility first gets the list of tracks as the `tracks` variable, accessible
-via ID <key>s, and uses this DOM object to build the paths to each song for
+This utility first gets the list of tracks as the `all_tracks` variable, accessible
+via ID <key>s. Then it gets the <array> of playlists, and cross references each ID
+against the `all_tracks` DOM object to build the paths to each song for
 the M3U file. It makes one .m3u file for each playlist, placing each in the 
 "Playlist" folder.
 
 This, of course, assumes the music directory you're keeping your music in is
-organized into folders for each artist, with subfolders for each release,
-and all songs are in these release subfolders. An example organization would be:
+organized into folders for each artist, with subfolders for each release by
+that artist, and all songs are in these release subfolders. An example 
+organization would be:
 
     Music
     ├── Bobson & the Dugnuts
@@ -33,7 +35,8 @@ and all songs are in these release subfolders. An example organization would be:
             ├── Renegade.ogg
             └── All Tuchanka is Green.mp4
 
-If all your music files are in the same folder, without any (note: iT/AM 
+If all your music files are in the same folder, without any intermediate folders,
+you can use the `-f` flag on this program and it'll work just fine. (note: iT/AM 
 does not download music this way by default, but it can).
 
 NOTE: This program does not support playlist folders, because the relationships
@@ -53,14 +56,15 @@ from argparse import ArgumentParser
 from lxml import etree
 
 
+# these are the extensions iTunes uses when downloading songs
 FILE_EXT_MAP = {
     'MPEG audio file':             '.mp3',
-    'MPEG-4 video file':           '.mp4',
+    'MPEG-4 video file':           '.m4a',
     'MPEG-4 audio file':           '.mp4',
-    'Purchased MPEG-4 video file': '.mp4',
-    'AAC audio file':              '.mp3',
-    'Purchased AAC audio file':    '.mp3',
-    'Matched AAC audio file':      '.mp3',
+    'Purchased MPEG-4 video file': '.m4v',
+    'AAC audio file':              '.m4a',
+    'Purchased AAC audio file':    '.m4a',
+    'Matched AAC audio file':      '.m4a',
     'AIFF audio file':             '.aif',
     'WAV audio file':              '.wav'
 }
@@ -86,9 +90,12 @@ def print_progress_bar(rows_now: int, total_rows: int, func_start_time: datetime
             end = "\r")
 
 
-# Most of the following are very simple functions, but I thought 
-# wrapping the code in functions makes parse_xml() 
-# easier to read than a ton of comments.
+
+###################################################################
+# Most of the following are very simple functions, but I thought  #
+# wrapping the code in functions makes parse_xml() easier to      #
+# read than a ton of comments.                                    #
+###################################################################
 
 def get_song_element(tracks_el: etree.Element, track_id: str) -> etree.Element:
     """
@@ -103,25 +110,25 @@ def get_song_element(tracks_el: etree.Element, track_id: str) -> etree.Element:
     return el_list[0]
 
 
-def get_file_ext(song_el: etree.Element, dir_sep) -> str:
+def get_file_ext(song_el: etree.Element) -> str:
     """
     Get file extension given file type.
     """
-    file_type = get_str_attr(song_el, "Kind", dir_sep)
+    file_type = get_str_attr(song_el, "Kind")
     file_ext  = None
 
     if file_type in FILE_EXT_MAP.keys():
         file_ext = FILE_EXT_MAP[file_type]
     else:
         print("\033[0;33mWarning\033[0m: unable to determine file extention for:")
-        print(f"\t'{get_str_attr(song_el,"Name", dir_sep)}' by \
-                   {get_str_attr(song_el, "Artist", dir_sep)}")
+        print(f"\t'{get_str_attr(song_el,"Name")}' by \
+                   {get_str_attr(song_el, "Artist")}")
         print("\033[0;33mWarning\033[0m: song not added to playlist")
 
     return file_ext
 
 
-def get_str_attr(el: etree.Element, attr: str, dir_sep: str):
+def get_str_attr(el: etree.Element, attr: str):
     """
     Get any attribute of the song or playlist held in a <string> element. 
     
@@ -148,7 +155,49 @@ def get_str_attr(el: etree.Element, attr: str, dir_sep: str):
         else:
             return ""
 
-    return slash_sanitize(string_el_list[0].text, dir_sep)
+    return sanitize(string_el_list[0].text)
+
+
+
+def sanitize(entry: str) -> str:
+    """
+    This function substitutes the occurence of problematic characters
+    in a string for an underscore, which is what MacOS does when
+    downloading a track. This is so the given string doesn't 
+    confuse the OS when it's a part of a path. Most of these characters
+    are MacOS' preferences, but a couple are Jellyfin's.
+    """
+    invalid_chars   = ["/", "\\", "\"", "?", ":", "<", ">", "*", "|"]
+
+    for char in invalid_chars:
+        if char in entry:
+            entry = entry.replace(char, "_")
+
+    # Mac also doesn't like terminal periods (.);
+    # ones in the middle of the entry are fine
+    if entry.endswith("."):
+        entry.replace(".", "_")
+
+    return entry
+
+
+def get_track_num(tr: etree.Element) -> str:
+    """
+    Gets track number if it exists and zero-pads it to a 
+    width of 2, and adds a space if a track number exists.
+    """
+    # list returned
+    tr_num = tr.xpath("key[text()='Track Number']/following-sibling::integer[1]")
+
+    if len(tr_num) > 0:
+
+        # we're only padding to a width of 2, so it's simple to implement here
+        if len(tr_num[0].text) == 1:
+            return ("0" + tr_num[0].text + " ")
+        else:
+            return (tr_num[0].text + " ")        # space added for formatting
+    else:
+        return ""
 
 
 def lookup_song(track_id_el: etree.Element, 
@@ -161,22 +210,6 @@ def lookup_song(track_id_el: etree.Element,
     track    = tracks_el.xpath(f"key[text()='{track_id}']/following-sibling::dict[1]")[0]
 
     return track
-
-
-# TODO: Update replacement logic with MacOS strategy
-
-def slash_sanitize(entry: str, dir_separator: str) -> str:
-    """
-    This function substitutes the occurence of a directory
-    separator in a string for what MacOS does when it encounters
-    the same thing. This is so the given string doesn't confuse 
-    the OS when it's a part of a path.
-    """
-    if dir_separator not in entry:
-        return entry
-    else:
-        # this is the logic MacOS uses when downloading music
-        return entry.replace(dir_separator, " - ")
 
 
 def is_folder(playlist: etree.Element) -> bool:
@@ -217,6 +250,8 @@ def parse_xml(cli_opts: dict):
     # "Playlists" that are all/most of the library, and are not user-generated.
     pl_ignores      = ["Library", "Downloaded", "Music"]
 
+    # Create playlist directory if it doesn't exist
+    os.makedirs(cli_opts['playlist_dir'], exist_ok=True)
 
     #########
     # Iterate over playlists
@@ -224,7 +259,7 @@ def parse_xml(cli_opts: dict):
     print("Starting conversion...\n")
     for i, pl in enumerate(playlists):
 
-        if get_str_attr(pl, "Name", dir_sep) in pl_ignores:
+        if get_str_attr(pl, "Name") in pl_ignores:
             continue
 
         # skip playlist folders. see header.
@@ -233,7 +268,7 @@ def parse_xml(cli_opts: dict):
 
         pl_tracks   = pl.findall("array/dict") # list of track IDs
         track_paths = []
-        pl_name     = get_str_attr(pl, 'Name', dir_sep)
+        pl_name     = get_str_attr(pl, 'Name')
         pl_filepath = cli_opts['playlist_dir'] + pl_name + ".m3u"
 
         # defaulting to not overwriting existing files.
@@ -259,32 +294,34 @@ def parse_xml(cli_opts: dict):
             tr = lookup_song(tr_id_el, all_tracks)
 
             # check ext first, because that will allow a song to be skipped
-            extension = get_file_ext(tr, dir_sep)
+            extension = get_file_ext(tr)
             if not extension:
                 continue
 
-            title  = get_str_attr(tr, "Name", dir_sep)       # needed regardless
-            path   = ""
+            track_num = get_track_num(tr)
+            title     = get_str_attr(tr, "Name")       # needed regardless
+            path      = ""
 
             if not cli_opts['flat_music_dir']:
-                artist = get_str_attr(tr, "Artist", dir_sep)
-                album  = get_str_attr(tr, "Album",  dir_sep)
-                path   = cli_opts['music_dir'] + dir_sep.join([artist, album, title]) \
+                artist = get_str_attr(tr, "Artist")
+                album  = get_str_attr(tr, "Album")
+                path   = cli_opts['music_dir'] \
+                            + dir_sep.join([artist, album, track_num + title]) \
                             + extension + "\n"
             else:
-                path = f"{cli_opts['music_dir']}{dir_sep}{title}{extension}\n"
+                path = cli_opts['music_dir'] + dir_sep + track_num + title + extension + "\n"
 
             # validate filepaths, if requested, and music_dir is specified
             if cli_opts['music_dir']:
                 if cli_opts['check_exists'] == "warn":
 
-                    check_path = path.replace(cli_opts['music_dir'], cli_opts['check_dir'])
+                    check_path = path.replace(cli_opts['music_dir'], cli_opts['check_exists'])
 
                     if not os.path.exists(check_path):
 
                         print("\n\033[0;33mWarning\033[0m: unable to locate file:")
-                        print(f"\t'{get_str_attr(tr,"Name", dir_sep)}' by \
-                                {get_str_attr(tr, "Artist", dir_sep)}")
+                        print(f"\t'{get_str_attr(tr,"Name")}' by \
+                                {get_str_attr(tr, "Artist")}")
                         print("\033[0;33mWarning\033[0m: song not added to playlist")
 
                 elif cli_opts['check_exists'] == "error":
@@ -316,9 +353,11 @@ def parse_cli_args() -> dict:
                       the server, added to make M3U paths absolute. If omitted, all paths will 
                       be relative.
 
-    -p PLAYLIST_DIR   The directory where you would like your playlist files stored. 
-                      If omitted, a directory named "Playlists" will be filled with these files 
-                      in the working directory.
+    -p PLAYLIST_DIR   The directory where you would like your playlist files stored. It will be 
+                      created if it does not exist. If omitted, a directory named "Playlists" 
+                      will be created in the working directory (if necessary) and filled with 
+                      the playlist files. 
+                      
 
     -c {warn, error,  Check if song file at inferred path exists, and either warn or throw an 
         none}         error. Default: warn. Ignored if -m is absent. (cannot check path reliably)
@@ -448,7 +487,7 @@ def main():
     {
         xml_file:          "Library.xml",
         music_dir:         "",
-        check_dir:         "",
+        check_exists:      "warn",
         playlist_dir:      "Playlists/",
         check_exists:      "warn",
         use_dos_filepaths: False,

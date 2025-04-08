@@ -83,6 +83,12 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
 
 For this step, see [Jellyfin's installation guide](https://jellyfin.org/docs/general/installation/) for instructions for your server setup.
 
+Since Jellyfin runs its commands, not as your user, but as a user called `jellyfin`, you need to give the `jellyfin` user access to your music. It only needs read and execute access, and often the user group in your name has these permissions for all your files. So if you're on Linux, you can add `jellyfin` to your user group by running:
+
+```
+sudo gpasswd --add jellyfin $USER
+```
+
 ### Step 5 &mdash; Add music and playlists to Jellyfin
 
 1. Point Jellyfin to your server's music directory by... [*to be filled in later*]
@@ -91,17 +97,12 @@ For this step, see [Jellyfin's installation guide](https://jellyfin.org/docs/gen
 
 ## Syncing later downloads
 
-If you end up downloading more music on your source computer that you would like in your Jellyfin library, the Bash script `sync-new-dls` has you covered if you're on a Unix-like system. It's for sending anything downloaded to your (source) music directory later than a given time to your server, utilizing `rsync`. It has the following usage:
+If you end up downloading more music on your source computer that you would like in your Jellyfin library, and you're on a Unix-like system, `rsync` will work just fine. Something like this will do:
 
 ```
-sync-new-dls [-h]  -t DL_TIME  -d SERVER_DEST
+rsync -r --progress <path to source music directory> <user@remote-host:/path/to/music/dir>
 ```
-Option | Description
------------- | ---------------
-`-t, --dl-time DL_TIME` | When (rather, just before) your the new files were downloaded. This program uses the GNU date utility, so it is very forgiving with the date format.
-`-d, --dest SERVER_DEST` |  The directory on the server into which the files are to be copied.
-`-r, --rsync-opts OPTS`  | (Optional) A quoted, space-delimited set of options to pass to `rsync`. For example: `-r "-a -z --config=../my-rsync.conf"` **Note**: in this program `rsync` is invoked with `-r` and `--progress`.
-`-h, --help` |  Print help text and exit.
 
+It'll only add new files into the correct folders, creating them if necessary, but leave the ones you already have.
 
 ### Thanks for reading! I hope this helps with your great migration!
