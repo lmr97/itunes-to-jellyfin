@@ -153,11 +153,11 @@ def get_str_attr(el: etree.Element, attr: str):
         else:
             return ""
 
-    return sanitize(string_el_list[0].text)
+    return sanitize(string_el_list[0].text, attr)
 
 
 
-def sanitize(entry: str) -> str:
+def sanitize(entry: str, attribute: str) -> str:
     """
     This function substitutes the occurence of problematic characters
     in a string for an underscore, which is what MacOS does when
@@ -172,12 +172,14 @@ def sanitize(entry: str) -> str:
             entry = entry.replace(char, "_")
 
     # Mac also doesn't like initial or terminal periods (.);
-    # ones in the middle of the entry are fine
-    if entry[-1] == ".":
-        entry = entry[:-1] + "_"
-    
-    if entry[0] == ".":
-        entry = "_" + entry[1:]
+    # ones in the middle of the entry are fine, anywhere if they are songs.
+    if attribute != "Name":
+
+        if entry[-1] == ".":
+            entry = entry[:-1] + "_"
+
+        if entry[0] == ".":
+            entry = "_" + entry[1:]
 
     return entry
 
@@ -203,6 +205,9 @@ def get_folder_artist(tr):
         return "Compilations"
 
     if album_artist:
+        if album_artist == "Various Artists":   # yes, this is how Mac does it
+            return "VARIOUS ARTISTS"
+
         return album_artist
 
     track_artist = get_str_attr(tr, "Artist")
