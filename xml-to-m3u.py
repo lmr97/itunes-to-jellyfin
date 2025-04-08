@@ -175,8 +175,8 @@ def sanitize(entry: str) -> str:
 
     # Mac also doesn't like terminal periods (.);
     # ones in the middle of the entry are fine
-    if entry.endswith("."):
-        entry.replace(".", "_")
+    if entry[-1] == ".":
+        entry[-1] = "_"
 
     return entry
 
