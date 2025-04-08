@@ -176,7 +176,7 @@ def sanitize(entry: str) -> str:
     # Mac also doesn't like terminal periods (.);
     # ones in the middle of the entry are fine
     if entry[-1] == ".":
-        entry = entry[:-2] + "_"
+        entry = entry[:-1] + "_"
 
     return entry
 
