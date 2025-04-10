@@ -39,19 +39,16 @@ If all your music files are in the same folder, without any intermediate folders
 you can use the `-f` flag on this program and it'll work just fine. (note: iT/AM 
 does not download music this way by default, but it can).
 
-NOTE: This program does not support playlist folders, because the relationships
-between playlists and their enclosing folder is not clear in iTunes' XML output. 
-Playlist folders in the XML appear as simply the union of the tracks in their  
-constituent playlists, so it would be prohibitively slow to compute which
-playlists belong to a given folder so defined. Playlist folders have to be remade 
-manually in Jellyfin, if supported.
+This program supports playlist organization into folders: it mirrors the
+structure of playlist folders in iTunes as given in the library file in the
+target playlist directory. 
 """
 
 import sys
 import os
 from shutil import get_terminal_size
 from math import ceil
-from datetime import datetime
+from datetime import datetime, timezone
 from argparse import ArgumentParser
 from lxml import etree
 
@@ -74,6 +71,8 @@ def print_progress_bar(rows_now: int, total_rows: int, func_start_time: datetime
     """
     Print progress bar, adjusting for console width.
     """
+    rows_now = min(rows_now, total_rows)   # cap rows_now
+
     output_width  = get_terminal_size(fallback=(80,25))[0]-37    # adjust as terminal changes
     completion    = rows_now/total_rows
     bar_width_now = ceil(output_width * completion)
@@ -227,13 +226,17 @@ def get_track_num(tr: etree.Element) -> str:
     """
 
     track_number = ""
+
     # check for multi-disc album
     disc_count = tr.xpath("key[text()='Disc Count']/following-sibling::integer[1]")
 
     if disc_count:
         if int(disc_count[0].text) > 1:
             disc_num = tr.xpath("key[text()='Disc Number']/following-sibling::integer[1]")
-            track_number = disc_num[0].text + "-"
+
+            # sometimes tracks have a disc count, but no listed disc number
+            if len(disc_num) > 0:
+                track_number = disc_num[0].text + "-"
 
     # list returned
     tr_num = tr.xpath("key[text()='Track Number']/following-sibling::integer[1]")
@@ -255,7 +258,7 @@ def lookup_song(track_id_el: etree.Element,
     Uses a track ID element from a playlist to get the song info
     out of the all-tracks element.
     """
-    track_id = track_id_el.xpath("integer")[0].text
+    track_id = track_id_el.find("integer").text
     track    = tracks_el.xpath(f"key[text()='{track_id}']/following-sibling::dict[1]")[0]
 
     return track
@@ -272,39 +275,200 @@ def is_folder(playlist: etree.Element) -> bool:
     return (len(results) > 0)
 
 
+def sanitize_xml(text: str) -> str:
+    """
+    Substitute problematic characters (&, <, >) for 
+    escaped versions in text meant element data 
+    (not for attributes, since attributes aren't edited
+    in this project)
+    """
+
+    text = text.replace("&", "&amp;")   # have to start with &, or else escapes get funky
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+
+    return text
+
+
+def write_xml_playlist(playlist_filepath: str, pl_name: str, track_paths: list, dir_sep: str):
+    """
+    Writes XML files from playlist info. Some headers are missing,
+    like owner user ID, genres, and runtime, but these can be 
+    populated by a library scan (relatively brief if already
+    done on library as a whole).
+    """
+    # sanitize
+    pl_name_sanitized = sanitize_xml(pl_name)
+    pl_xml = etree.XML(
+        (
+            "<Item>"
+            "<Added>"
+            f"{datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S")}"
+            "</Added>"
+            "<LockData>false</LockData>"
+            f"<LocalTitle>{pl_name_sanitized}</LocalTitle>"
+            "<PlaylistItems />"
+            "<Shares />"
+            "<PlaylistMediaType>Audio</PlaylistMediaType>"
+            "</Item>"
+        )
+    )
+    pl_xml_tree = etree.ElementTree(pl_xml)   # for native write() method
+
+    # all playlist items will be appended to this one. Element.find()
+    # returns a reference to the element, not a copy (thank god)
+    pl_items_el = pl_xml_tree.find("PlaylistItems")
+
+    for track_path in track_paths:
+
+        # build <PlaylistItem> element
+        pl_track     = etree.Element("PlaylistItem")
+        path_el      = etree.SubElement(pl_track, "Path")
+        path_el.text = sanitize_xml(track_path[:-1])      # shave off newline added by parse_xml()
+
+        # append it to <PlaylistItems> element,
+        # which by extension adds it to `pl_xml`
+        pl_items_el.append(pl_track)
+
+    # Jellyfin puts all its playlist XMLs in folders with the name of the playlist,
+    # so create one if need be
+    playlist_parent_dir = playlist_filepath.split(dir_sep)
+    playlist_parent_dir = dir_sep.join(playlist_parent_dir[:-1])
+    os.makedirs(playlist_parent_dir, exist_ok=True)
+
+    # will create file if it doesn't exist
+    pl_xml_tree.write(
+        playlist_filepath,
+        pretty_print=True,
+        xml_declaration=True,
+        encoding='utf-8',
+        standalone=True
+    )
+
+
+def get_pl_folders(playlists: etree.Element) -> dict:
+    """
+    Scans the list of playlists, and assembles a `dict` where each 
+    key-value pair following form:
+
+        <Persistent ID>: (<playlist name>, <Parent Persisent ID>)
+    
+    The key is a str, and the value is a 2-tuple. This `dict` is generated
+    to save time and computing resources later on. 
+    
+    It was thought to be more effecient than passing the whole (potentially 
+    large) XML element down a chain of recursion, and instead passing a `dict`
+    down it. 
+    """
+
+    pl_dict = dict()
+    for pl in playlists:
+
+        if not is_folder(pl):
+            continue
+
+        pl_id   = get_str_attr(pl, "Playlist Persistent ID")
+        pl_name = get_str_attr(pl, "Name")
+        par_id  = get_str_attr(pl, "Parent Persistent ID")      # parent ID
+
+        pl_dict.update({pl_id: (pl_name, par_id)})
+
+    return pl_dict
+
+def make_parent_folder_path(
+    playlist:         etree.Element,
+    playlist_folders: dict,
+    playlist_dir:     str,
+    dir_sep:          str) -> str:
+    """
+    Some playlists are kept in playlist folders in iTunes.
+    If a playlist is in a folder, the library XML has a <key>
+    with "Parent Persistent ID", which is the "Persistent ID"
+    of another "playlist" listed, of type Folder.
+
+    This function takes a playlist, as well as a `dict` playlists,
+    (made in `get_pl_folders()`), produces a path to insert into 
+    the playlist's filepath, mirroring the user's playlist 
+    folder structure within iTunes in the playlist directory 
+    the user specified. It also create the directories necessary
+    in the playlist directory
+
+    It does this through recursion. See parent_folder() for recursive 
+    componenent.
+    """
+    pl_parent_id = get_str_attr(playlist, "Parent Persistent ID")
+    path_so_far  = ""
+    parents_path = parent_folder(pl_parent_id, playlist_folders, path_so_far, dir_sep)
+
+    os.makedirs(playlist_dir+parents_path, exist_ok=True)
+
+    return parents_path
+
+
+def parent_folder(
+    pl_parent_id:  str,
+    folders_table: dict,
+    path_so_far:   str,
+    dir_sep:       str) -> str:
+    """
+    Recurses through playlist folder table to get the path from
+    playlist directory to the playlist, as it is organized in iTunes.
+    """
+
+    # break condition
+    if not pl_parent_id:
+        return path_so_far
+
+    parent_info  = folders_table[pl_parent_id]
+    path_so_far  = parent_info[0] + dir_sep + path_so_far
+
+    return parent_folder(parent_info[1], folders_table, path_so_far, dir_sep)
+
+
+
 def parse_xml(cli_opts: dict):
     """
     Interprets CLI options, and then parses XML into
-    tracks object and playlists object, calling
-    gen_m3u_file() to assemble and write the files.
+    tracks object and playlists object, building track paths, and 
+    writing a file of the appropriate type and location.
     """
     # determine filepath separator
     dir_sep = "/"
     if cli_opts['use_dos_filepaths']:
         dir_sep = "\\"
 
-    if cli_opts['flat_music_dir']:
-        pass
+    # this conditional pops up enough to justify making
+    # a single boolean for it
+    xml_output = True
+    if cli_opts['output_format'] == "m3u":
+        xml_output = False
+
+    # similarly, this appears often enough to be worth
+    # saving in its own variable
+    pl_dir = cli_opts['playlist_dir']
 
     print("Loading library XML file...\n")
 
     library_dom = etree.parse(cli_opts['xml_file'])
     all_tracks  = library_dom.find("dict/dict")             # keep tracks as a single <dict> element
     playlists   = library_dom.findall("dict/array/dict")    # Playlists == <dict>s, list for iter
+    pl_folders  = get_pl_folders(playlists)                 # the playlists folders made in iTunes
 
     # vars for loading bar
-    total_playlists = len(playlists)
-    proc_start      = datetime.now()
+    total_playlists  = len(playlists)        # includes folders, will update as folders are found
+    proc_start       = datetime.now()
 
     # "Playlists" that are all/most of the library, and are not user-generated.
-    pl_ignores      = ["Library", "Downloaded", "Music"]
+    pl_ignores       = ["Library", "Downloaded", "Music", "Recently Added"]
+    total_playlists -= 4                     # take off 3 for the list above
 
     # Create playlist directory if it doesn't exist
-    os.makedirs(cli_opts['playlist_dir'], exist_ok=True)
+    os.makedirs(pl_dir, exist_ok=True)
 
     # track missing tracks and altered playlists
-    tracks_not_found     = 0
-    playlists_incomplete = 0
+    all_tracks_in_pls    = set()
+    all_tracks_not_found = set()    # count only unique misses
+    incomplete_playlists = []
 
     #########
     # Iterate over playlists
@@ -317,13 +481,22 @@ def parse_xml(cli_opts: dict):
 
         # skip playlist folders. see header.
         if is_folder(pl):
+            total_playlists -= 1    # number originally included folders, adjust that here
             continue
 
         pl_incomplete = False
         pl_tracks     = pl.findall("array/dict") # list of track IDs
-        track_paths   = []
         pl_name       = get_str_attr(pl, 'Name')
-        pl_filepath   = cli_opts['playlist_dir'] + pl_name + ".m3u"
+        pl_filepath   = pl_dir + make_parent_folder_path(pl, pl_folders, pl_dir, dir_sep)
+        track_paths   = []
+
+        pl_tracks_not_found = set()
+
+        # determine filepath
+        if xml_output:
+            pl_filepath  = dir_sep.join([pl_filepath, pl_name, "playlist.xml"])
+        else:
+            pl_filepath += dir_sep + pl_name + ".m3u"
 
         # defaulting to not overwriting existing files.
         #
@@ -336,7 +509,12 @@ def parse_xml(cli_opts: dict):
         # This requires the user to delete the existing playlist files,
         # preventing accidental overwrites.
         if os.path.exists(pl_filepath):
-            print(f"\"{pl_name}.m3u\" exists in {cli_opts['playlist_dir']}, skipping...")
+            if xml_output:
+                print((f"\"{pl_name}/playlist.xml\" exists in "
+                    f"{pl_dir}, skipping..."))
+            else:
+                print((f"\"{pl_name}.m3u\" exists in {pl_dir}, skipping..."))
+
             continue
 
         #########
@@ -352,32 +530,31 @@ def parse_xml(cli_opts: dict):
                 continue
 
             track_num = get_track_num(tr)
-            title     = get_str_attr(tr, "Name")       # needed regardless
+            title     = get_str_attr(tr, "Name")        # needed regardless
             path      = ""
 
-            if not cli_opts['flat_music_dir']:
-                artist = get_folder_artist(tr)          # album artist is needed
-                album  = get_str_attr(tr, "Album")
-                path   = cli_opts['music_dir'] \
-                            + dir_sep.join([artist, album, track_num + title]) \
-                            + extension
-            else:
-                path = cli_opts['music_dir'] + dir_sep + track_num + title + extension
+            artist = get_folder_artist(tr)              # album artist is needed
+            album  = get_str_attr(tr, "Album")
+            path   = cli_opts['music_dir'] \
+                        + dir_sep.join([artist, album, track_num + title]) \
+                        + extension
 
-            # validate filepaths, if requested, and music_dir is specified
+            all_tracks_in_pls.add(path)             # count unique tracks encountered
+
             if not os.path.exists(path):
 
                 # always track, even when option is "none" (see print statments at end of function)
-                tracks_not_found += 1
-                pl_incomplete     = True
+                pl_tracks_not_found.add(path+"\n")      # add path to set
+                all_tracks_not_found.add(path+"\n")
+                pl_incomplete = True
 
+                # validate filepaths, if requested
                 if cli_opts['check_exists'] == "warn":
 
                     print("\n\033[0;33mWarning\033[0m: unable to locate file:")
                     print(f"\t'{title}' by {get_str_attr(tr, "Artist")}")
                     print(f"Expected it at: \"{path}\"")
                     print("\033[0;33mWarning\033[0m: song not added to playlist")
-
                     continue
 
                 if cli_opts['check_exists'] == "error":
@@ -386,20 +563,57 @@ def parse_xml(cli_opts: dict):
                     # since an error is raised when the first of either occurs
                     raise FileNotFoundError(f"file {path} not found.")
 
+            # execution reaches here if either:
+            # 1) file exists
+            # 2) check_exists != warn AND check_exists != error
             track_paths.append(path+"\n")
 
         if pl_incomplete:
-            playlists_incomplete += 1
+            incomplete_playlists.append(pl_name+"\n")
 
-        with open(pl_filepath, "x", encoding='utf-8') as pl_file:
+        # write out to file, with the correct format
+        if xml_output:
+            write_xml_playlist(pl_filepath, pl_name, track_paths, dir_sep)
+        else:
+            with open(pl_filepath, "w+", encoding='utf-8') as pl_file:
+                pl_file.writelines(track_paths)
 
-            pl_file.writelines(track_paths)
+        # write out file of missed tracks from the playlist,
+        # in file named <playlist name>/playlist.missing for XMLs
+        # or <playlist name>.m3u.missing for M3Us.
+        missing_tr_file_path = pl_filepath.split(dir_sep)
+        if xml_output:
+            missing_tr_file_path[-1]  = "playlist.missing"  # change file extension
+        else:
+            missing_tr_file_path[-1] += ".missing"          # append after file extension
+
+        missing_tr_file_path = dir_sep.join(missing_tr_file_path)
+
+        # NOTE: since a `set` was used to keep track of missing tracks,
+        # the order these tracks will be written to this file cannot be
+        # known in advance.
+        with open(missing_tr_file_path, "w+", encoding='utf-8') as missing_tr_file:
+            missing_tr_file.writelines(pl_tracks_not_found)
 
         print_progress_bar(i+1, total_playlists, proc_start)
 
+    # make list of playlists that had any missing tracks, named
+    # named "00incomplete_playlists.txt" in the given playlist directory
+    with open(pl_dir+"00incomplete_playlists.txt", "w+", encoding='utf-8') as incomp_pl_file:
+        incomp_pl_file.writelines(incomplete_playlists)
+
+    # make list of all filepaths for songs that weren't found,
+    # and put it in the playlist directory root. Uses M3U format
+    # regardless of playlist format to help user better locate
+    # missing tracks
+    with open(pl_dir+"00tracks_not_found.m3u", "w+", encoding='utf-8') as tr_not_found_file:
+        tr_not_found_file.writelines(all_tracks_not_found)
+
     # print this regardless
-    print(f"\n\nTracks not found:     {tracks_not_found} / {len(all_tracks.findall("dict"))}")
-    print(f"Playlists incomplete: {playlists_incomplete} / {total_playlists}")
+    # "tracks not found" measures the number of tracks that are in playlists,
+    # but were not found in the file system
+    print(f"\n\nTracks not found:     {len(all_tracks_not_found)} / {len(all_tracks_in_pls)}")
+    print(f"Playlists incomplete: {len(incomplete_playlists)} / {total_playlists}")
 
 
 
@@ -420,13 +634,17 @@ def parse_cli_args() -> dict:
                       
 
     -c {warn, error,  Check if song file at inferred path exists, and either warn or throw an 
-        none}         error. Default: warn. Ignored if -m is absent. (cannot check path reliably)
-        
-    -w                Use MSDOS (Windows) filepath conventions (backslash file separator).
+        none}         error. `none` only count if the file was not found, but add it to the playlist
+                      file anyway. Default: warn. Set to `none` if -m is absent. (cannot check path 
+                      reliably). 
 
-    -f                Flat music directory: all music files are in the same directory, without 
-                      any folders between the file and the music directory root. With this option, 
-                      all paths are relative only to the music directory root.
+    -f {m3u, xml}     The format to output the playlists info into. Defaults to XML. If `xml`
+                      is chosen, the file will be formatted like Jellyfin's playlist XMLs,
+                      but with <RunningTime>, <Genres>, and <OwnerUserID> tags omitted, as they
+                      can be filled in with a rescan of the library (this will be relatively
+                      brief if the music has been scanned already).    
+
+    -w                Use MSDOS (Windows) filepath conventions (backslash file separator).
 
     -t                Show mapping of file types to file extensions used in the program and exit.
 
@@ -471,9 +689,22 @@ def parse_cli_args() -> dict:
                     choices=["warn", "error", "none"],
                     required=False,
                     dest="check_exists",
-                    help="Check if song file at inferred path exists, and either warn \
-                        the user, throw an error (and terminate), or ignore. Ignored \
-                        if -m is absent."
+                    help="Check if song file at inferred path exists, and either warn or throw an \
+                      error. `none` only count if the file was not found, but add it to the playlist \
+                      file anyway. Default: warn. Set to `none` if -m is absent. (cannot check path \
+                      reliably)."
+                    )
+
+    ap.add_argument('-f',
+                    default="xml",
+                    choices=["xml", "m3u"],
+                    required=False,
+                    dest="output_format",
+                    help="The format to output the playlists info into. Defaults to XML. If `xml` \
+                      is chosen, the file will be formatted like Jellyfin's playlist XMLs, \
+                      but with <RunningTime>, <Genres>, and <OwnerUserID> tags omitted, as they \
+                      can be filled in with a rescan of the library (this will be relatively \
+                      brief if the music has been scanned already)."
                     )
 
     ap.add_argument('-w',
@@ -485,17 +716,17 @@ def parse_cli_args() -> dict:
                         (backslash file separator)"
                     )
 
-    ap.add_argument('-f',
-                    action="store_true",
-                    default=False,
-                    required=False,
-                    dest="flat_music_dir",
-                    help="Flat music directory: all music files are in \
-                        the same directory, without any folders between \
-                        the file and the music directory root. With this \
-                        option, all paths are relative only to the music \
-                        directory root."
-                    )
+    # ap.add_argument('-l',
+    #                 action="store_true",
+    #                 default=False,
+    #                 required=False,
+    #                 dest="flat_music_dir",
+    #                 help="Flat music directory: all music files are in \
+    #                     the same directory, without any folders between \
+    #                     the file and the music directory root. With this \
+    #                     option, all paths are relative only to the music \
+    #                     directory root."
+    #                 )
 
     ap.add_argument('-t',
                     action="store_true",
@@ -549,15 +780,16 @@ def ensure_slash(opts: dict) -> dict:
 def main():
     """
     When taking command-line arguments, a `dict` is generated with the 
-    following defaults:
+    command line arguments. If omitted (which all can be), the following 
+    defaults are returned:
+
     {
         xml_file:          "Library.xml",
         music_dir:         "",
-        check_exists:      "warn",
         playlist_dir:      "Playlists/",
         check_exists:      "warn",
+        output_format:     "xml",
         use_dos_filepaths: False,
-        flat_music_dir:    False,
         show_ext_map:      False
     }
     """
@@ -569,21 +801,27 @@ def main():
         show_ext_map()
         return
 
-    try:
-        parse_xml(cli_opts)
+    parse_xml(cli_opts)
+    # try:
+    #     parse_xml(cli_opts)
 
-    except FileNotFoundError as fnfe:
+    # except FileNotFoundError as fnfe:
 
-        print(f"\033[0;31mError encountered\033[0m: {repr(fnfe)}")
-        print(("\033[0;33mNote\033[0m: this error can be thrown if the file exists, "
-            "but was given the wrong extension by this program. To display the way "
-            "this program maps file types to extensions, execute the program "
-            "with the -t flag.\n"))
-        print(("If you would like the program to continue running even when a music "
-            "file is not found, execute the program with either `-c warn` or `-c none`.\n"))
-        print("\033[0;31mTerminating on error...\033[0m")
+    #     print(f"\033[0;31mError encountered\033[0m: {repr(fnfe)}")
+    #     print(("\033[0;33mNote\033[0m: this error can be thrown if the file exists, "
+    #         "but was given the wrong extension by this program. To display the way "
+    #         "this program maps file types to extensions, execute the program "
+    #         "with the -t flag.\n"))
+    #     print(("If you would like the program to continue running even when a music "
+    #         "file is not found, execute the program with either `-c warn` or `-c none`.\n"))
+    #     print("\033[0;31mTerminating on error...\033[0m")
 
-        sys.exit(2)     # Linux ENOENT exit status
+    #     sys.exit(2)     # Linux ENOENT exit status
+
+    # except Exception as e:
+    #     print(f"\033[0;31mUnexpected error encountered\033[0m: {repr(e)}")
+    #     print("\033[0;31mTerminating on error...\033[0m")
+    #     sys.exit(1)
 
     print("\n\n\033[0;32mConversion complete!\033[0m\n")
 
