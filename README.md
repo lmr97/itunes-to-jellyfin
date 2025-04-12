@@ -53,31 +53,6 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
 
 4. **Copy the files** into a directory of your choice on the server.
 
-5. On your command line, **clone this repo**, and enter the cloned directory:
-    ```
-    git clone https://github.com/lmr97/itunes-to-jellyfin/
-    cd itunes-to-jellyfin
-    ```
-
-6. **Install the `lxml` Python module** (if you don't have it already) for the Python program we are about to run. See the [installation guide](https://lxml.de/installation.html) for how to do so for your server. To check if you have it, run `pip show lxml`. If you'd like to use a virtual environment (named `pyvenv` in the current directory), run `python3 -m venv ./pyvenv`
-
-7. Now you can **run playlist conversion program**:
-    ```
-    python3 xml-to-m3u.py \
-        -x <path to Library.xml> \
-        -m <path to music dir on server> \
-        -p <directory for playlist M3Us>
-    ```
-    Or if you're using a virtual environment:
-    ```
-    <path to venv>/bin/python3 xml-to-m3u.py \
-        -x <path to Library.xml> \
-        -m <path to music dir on server> \
-        -p <directory for playlist M3Us>
-    ```
-    *Note*: `xml-to-m3u.py` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
-    
-    You can run `python3 xml-to-m3u.py -h` to see all available options. 
 
 ### Step 4 &mdash; Install Jellyfin
 
@@ -91,9 +66,48 @@ sudo gpasswd --add jellyfin $USER
 
 ### Step 5 &mdash; Add music and playlists to Jellyfin
 
-1. Point Jellyfin to your server's music directory by... [*to be filled in later*]
+1. **Make a playlist through Jellyfin**. You can do so by finding a song, clicking the **triple-dot** icon, and selecting **Add to Playlist** from the menu, and fill out the relevant information. 
 
-2. Add in your playlists using the M3U files generated earlier by... [*to be filled in later*]
+3. **Find the playlist** you made, then click the **triple-dot**, and go to **Edit Metadata...**, and note down what the Path to the playlist is. The parent folder of the folder at the end of the path is where all your playlists should be placed (more on that shortly). I'll call this directory `playlist_dir` below.
+
+### Convert your playlists
+
+1. On your command line, **clone this repo**, and enter the cloned directory:
+    ```
+    git clone https://github.com/lmr97/itunes-to-jellyfin/
+    cd itunes-to-jellyfin
+    ```
+
+2. **Install the conversion utility** 
+
+    This is how to do so for a Linux machine (no root privileges required!): 
+    
+    1. Make virtual environment (in current directory)
+        ```
+        python3 -m venv ./pv
+        ```
+    
+    2. Install conversion utility (`itxml2pl`) into the virtual environment:
+        ```
+        ./pv/bin/pip install ./itxml2pl
+        ```
+    
+    3. Creat [symbolic link](https://en.wikipedia.org/wiki/Symbolic_link) to the non-privileged part of [`$PATH`](https://en.wikipedia.org/wiki/PATH_(variable))
+        ```
+        ln -s ./pv/bin/itxml2pl ~/.local/bin/itxml2pl
+        ```
+
+3. Now you can **run the playlist conversion program**:
+    ```
+    itxml2pl \
+        -x <path to Library.xml> \
+        -m <path to music dir on server> \
+        -p playlist_dir
+    ```
+    
+    *Note*: `itxml2pl` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    
+    You can run `itxml2pl --help` to see all available options. 
 
 ## Syncing later downloads
 
