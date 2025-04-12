@@ -102,10 +102,16 @@ class _LibraryEntry:
         if not string_el_list:
             if attr == "Album":
                 return "Unknown Album"
-            else:
-                return ""
+            if "Artist" in attr:
+                return "Unknown Artist"
 
-        return sanitize_path(string_el_list[0].text, attr)
+            return ""
+
+        # trim off spaces from end and beginning
+        result = string_el_list[0].text
+        result = result.lstrip().rstrip()
+
+        return sanitize_path(result, attr)
 
 
 

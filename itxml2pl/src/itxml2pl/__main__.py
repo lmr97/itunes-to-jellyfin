@@ -88,7 +88,7 @@ def write_xml_playlist(playlist_filepath: str, pl_name: str, track_paths: list, 
         # build <PlaylistItem> element
         pl_track     = etree.Element("PlaylistItem")
         path_el      = etree.SubElement(pl_track, "Path")
-        path_el.text = sanitizers.sanitize_xml(track_path[:-1])      # shave off newline added by parse_xml()
+        path_el.text = sanitizers.sanitize_xml(track_path[:-1])    # shave off \n from parse_xml()
 
         # append it to <PlaylistItems> element,
         # which by tr.file_ext adds it to `pl_xml`
@@ -148,7 +148,7 @@ def parse_xml(cli_opts: dict):
 
     # "Playlists" that are all/most of the library, and are not user-generated.
     pl_ignores       = ["Library", "Downloaded", "Music", "Recently Added"]
-    total_playlists -= 4                     # take off 3 for the list above
+    total_playlists -= len(pl_ignores)                      # decrement by list length above
 
     # Create playlist directory if it doesn't exist
     os.makedirs(pl_dir, exist_ok=True)
