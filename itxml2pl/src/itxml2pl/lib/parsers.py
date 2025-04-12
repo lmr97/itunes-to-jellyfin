@@ -102,8 +102,6 @@ class _LibraryEntry:
         if not string_el_list:
             if attr == "Album":
                 return "Unknown Album"
-            if "Artist" in attr:
-                return "Unknown Artist"
 
             return ""
 
