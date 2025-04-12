@@ -94,7 +94,7 @@ sudo gpasswd --add jellyfin $USER
     
     3. Creat [symbolic link](https://en.wikipedia.org/wiki/Symbolic_link) to the non-privileged part of [`$PATH`](https://en.wikipedia.org/wiki/PATH_(variable))
         ```
-        ln -s ./pv/bin/itxml2pl ~/.local/bin/itxml2pl
+        ln -s "$PWD/pv/bin/itxml2pl" ~/.local/bin/itxml2pl
         ```
 
 3. Now you can **run the playlist conversion program**:
