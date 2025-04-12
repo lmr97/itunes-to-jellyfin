@@ -105,7 +105,9 @@ sudo gpasswd --add jellyfin $USER
         -p playlist_dir
     ```
     
-    *Note*: `itxml2pl` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    **Note**: If you're running your Jellyfin server from a Docker container, the path to you music directory has to be the path *from within the container* (if you [bind-mounted](https://stackoverflow.com/questions/47150829/what-is-the-difference-between-binding-mounts-and-volumes-while-handling-persist) the directory), not the path to the directory on your machine's filesystem.
+
+    `itxml2pl` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
     
     You can run `itxml2pl --help` to see all available options. 
 

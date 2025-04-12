@@ -41,7 +41,9 @@ does not download music this way by default, but it can).
 
 This program supports playlist organization into folders: it mirrors the
 structure of playlist folders in iTunes as given in the library file in the
-target playlist directory. 
+target playlist directory. Jellyfin, however, uses something called "collections"
+to organize media items, and collections expand to all media, not just music 
+or playlists, so collections have their own section in your Jellyfin library.
 """
 
 import sys
@@ -129,7 +131,13 @@ def parse_xml(cli_opts: dict):
 
 
     print("Loading library XML file...\n")
-    library_dom = etree.parse(cli_opts['xml_file'])
+    try:
+        library_dom = etree.parse(cli_opts['xml_file'])
+    except OSError as ose:
+        print(f"Unable to find Library.xml file at {cli_opts['xml_file']}.")
+        print(f"Error text: {repr(ose)}")
+        raise OSError from ose
+
     all_tracks  = library_dom.find("dict/dict")             # keep tracks as a single <dict> element
     playlists   = library_dom.findall("dict/array/dict")    # Playlists == <dict>s, list for iter
     pl_folders  = parsers.get_pl_folders(playlists)         # the playlists folders made in iTunes
@@ -352,6 +360,9 @@ def main():
         print(f"     Mode: {pl_dir_stat.st_mode}")
 
         print("\n\033[0;31mTerminating on error...\033[0m")
+
+    except OSError:
+        sys.exit(2)
 
     except Exception as e:
         print(f"\033[0;31mUnexpected error encountered\033[0m: {repr(e)}")
