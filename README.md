@@ -70,7 +70,7 @@ sudo gpasswd --add jellyfin $USER
 
 3. **Find the playlist** you made, then click the **triple-dot**, and go to **Edit Metadata...**, and note down what the Path to the playlist is. The parent folder of the folder at the end of the path is where all your playlists should be placed (more on that shortly). I'll call this directory `playlist_dir` below.
 
-### Convert your playlists
+### Step 6 &mdash; Convert your playlists
 
 1. On your command line, **clone this repo**, and enter the cloned directory:
     ```
@@ -82,7 +82,7 @@ sudo gpasswd --add jellyfin $USER
 
     This is how to do so for a Linux machine (no root privileges required!): 
     
-    1. Make virtual environment (in current directory)
+    1. Make a Python virtual environment named `pv` (in current directory)
         ```
         python3 -m venv ./pv
         ```
@@ -110,6 +110,17 @@ sudo gpasswd --add jellyfin $USER
     `itxml2pl` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
     
     You can run `itxml2pl --help` to see all available options. 
+
+    #### Upcoming features
+
+    - Mirror iTunes playlist folder structure using Jellyfin's collections
+
+    - Ability to specify separate music directory to use in checking if music files exist (for Docker)
+
+
+### Step 7 &mdash; Rescan library
+
+You need to have access to Jellyfin administration tools for this. To rescan library, click the [hamburger](https://en.wikipedia.org/wiki/Hamburger_button), and select **Dashboard**. From there, click **Rescan All Libraries**. If you've already scanned your library before (which has probably already been done as a part of the Jellyfin install process), then this will be fairly quick.
 
 ## Syncing later downloads
 
