@@ -68,6 +68,84 @@ def lookup_song(track_id_el: etree.Element,
 
 
 
+def fuzzy_search(track_path: str, music_dir: str, dir_sep: str) -> str:
+    """
+    Descend along the track path, returning the correct path if found. 
+
+    For instance, if track_path == "/Music/Jane Shepard/Greatest hits/Renegade.ogg"
+    and `/Music` is laid out like so -- 
+
+        ```
+        Music
+        ├── Bobson & the Dugnuts
+        │   ├── Day on the Diamond
+        │   │   ├── Big in Japan.mp3
+        │   │   ├── Sakura Bat.mp3
+        │   │   └── Tokyo Pitch.mp3
+        │   └── World Tour 1993
+        │       └── Sakura Bat (Live).mp3
+        └── Jane Shepard
+            └── Greatest Hits
+                ├── Renegade.ogg
+                └── All Tuchanka is Green.mp4
+        ```
+
+    this function will first lowercase the artist part of the track_path:
+
+        ```
+        /Music/Jane Shepard/Greatest hits/Renegade.ogg
+               ------------
+               └──> "jane shepard"
+        ```
+
+    and seach the directories in /Music, also made lowercase: 
+
+        ```
+        ["bobson & the dugnuts", "jane shepard"]
+        ```
+    
+    which it will find the correct directory. But wait! we didn't fix anything.
+    If the (previous case) music directory artist name is the same as the one in 
+    the track path, then keep searching, since that clearly wasn't the problem.
+    
+    After this, we would search `/Music/Jane Shepard` ("Greatest Hits") also made 
+    lowercase ("greatest hits") against the next part of the track path, likewise
+    made lowercase. Since the music directory has a different album directory name
+    than the one in the track path, this function will return the fixed path:
+
+        ```
+        return "/Music/Jane Shepard/Greatest Hits/Renegade.ogg:
+        ```
+    
+    If the path cannot be located with any case switchup, then it will return 
+    a null string.
+    """
+    rel_tp   = track_path.replace(music_dir, "")    # remove music dir path
+    tp_parts = rel_tp.split(dir_sep)                # get pieces of track path
+
+    for i, tp_entry in enumerate(tp_parts):
+
+        lc_tp_part = tp_entry.lower()
+
+        # directory to search names in
+        partial_path = music_dir + dir_sep.join(tp_parts[:i])
+
+        for directory in os.listdir(partial_path):
+            lc_dir = directory.lower()
+
+            if lc_tp_part == lc_dir and tp_entry != directory:
+                tp_parts[i] = directory
+
+    fixed_path = music_dir + dir_sep.join(tp_parts)
+
+    # if we didn't change anything, handle it here
+    if fixed_path == track_path:
+        return ""
+
+    return fixed_path
+
+
+
 ########################
 #        CLASSES       #
 ########################
@@ -78,9 +156,9 @@ class _LibraryEntry:
     """
     def __init__(self, el: etree.Element):
         self.el   = el
-        self.name = self.get_str_attr("Name")
+        self.name = self.get_str_attr("Name", False)
 
-    def get_str_attr(self, attr: str):
+    def get_str_attr(self, attr: str, path_sanitize=True):
         """
         Get any attribute of the song or playlist held in a <string> element. 
         
@@ -91,6 +169,11 @@ class _LibraryEntry:
 
         Directory seperator is added to be able to sanitize the return value, 
         in case it gets used in a filepath.
+
+        `attr`: The attribute to get within a <string> tag of element
+        `path_sanitize`: Whether to replace problematic characters in 
+            an attribute value with `_`. Defaults to `True`.
+
         """
 
         # get first <string> element after a <key> with
@@ -109,7 +192,10 @@ class _LibraryEntry:
         result = string_el_list[0].text
         result = result.lstrip().rstrip()
 
-        return sanitize_path(result, attr)
+        if path_sanitize:
+            return sanitize_path(result, attr)
+
+        return result
 
 
 
@@ -122,6 +208,7 @@ class Track(_LibraryEntry):
     def __init__(self, song_el: etree.Element):
 
         super().__init__(song_el)
+        self.name       = sanitize_path(self.name, "Name")
         self.artist     = self.get_str_attr("Artist")
         self.album      = self.get_str_attr("Album")
         self.track_num  = self._get_track_num()
@@ -199,22 +286,32 @@ class Track(_LibraryEntry):
         This function returns the proper value for the track element.
         """
 
-        album_artist = self.get_str_attr("Album Artist")
         compil_elem  = self.el.xpath("key[text()='Compilation']")
 
         # when a track is a part of a compilation
         if compil_elem:
             return "Compilations"
 
-        if album_artist:
-            if album_artist == "Various Artists":   # yes, this is how Mac does it
-                return "VARIOUS ARTISTS"
+        # this is the priority by which the artist directory is determined
+        priority_attrs = ["Sort Album Artist", "Album Artist", "Sort Artist"]
 
-            return album_artist
+        # search for and return the first match in the priority list
+        for attr in priority_attrs:
 
+            val = self.get_str_attr(attr)
+
+            if val:
+                if val == "Various Artists":   # yes, this is how Mac does it
+                    return "VARIOUS ARTISTS"
+
+                return val
+
+        # artist has already been gotten, so save time and leave it off the list,
+        # and catch the condition outside the loop
         if self.artist:
             return self.artist
 
+        # if all else fails...
         return "Unknown Artist"
 
 
@@ -232,8 +329,8 @@ class Playlist(_LibraryEntry):
     """
     def __init__(self, pl_el: etree.Element):
         super().__init__(pl_el)
-        self.id         = self.get_str_attr("Playlist Persistent ID")
-        self.parent_id  = self.get_str_attr("Parent Persistent ID")      # parent ID
+        self.id         = self.get_str_attr("Playlist Persistent ID", False)
+        self.parent_id  = self.get_str_attr("Parent Persistent ID", False)      # parent ID
 
 
     def is_folder(self) -> bool:

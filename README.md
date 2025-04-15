@@ -82,7 +82,7 @@ sudo gpasswd --add jellyfin $USER
 
     This is how to do so for a Linux machine (no root privileges required!): 
     
-    1. Make a Python virtual environment named `pv` (in current directory)
+    1. Make a Python virtual environment named `pv` in current directory:
         ```
         python3 -m venv ./pv
         ```

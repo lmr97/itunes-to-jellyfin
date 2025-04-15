@@ -182,10 +182,11 @@ def parse_xml(cli_opts: dict):
         pl_tracks_not_found = set()
 
         # determine filepath
+        pl_name_sanitized = sanitizers.sanitize_path(pl.name, "Name")
         if xml_output:
-            pl_filepath  = dir_sep.join([pl_filepath, pl.name, "playlist.xml"])
+            pl_filepath  = dir_sep.join([pl_filepath, pl_name_sanitized, "playlist.xml"])
         else:
-            pl_filepath += dir_sep + pl.name + ".m3u"
+            pl_filepath += dir_sep + pl_name_sanitized + ".m3u"
 
         # defaulting to not overwriting existing files.
         #
@@ -214,7 +215,7 @@ def parse_xml(cli_opts: dict):
             tr_el = parsers.lookup_song(tr_id_el, all_tracks)
             tr    = Track(tr_el)
 
-            # check ext first, because that will allow a song to be skipped
+            # check ext was found for the file type first, because if not, we can skip a loop
             if not tr.file_ext:
                 continue
 
@@ -224,27 +225,35 @@ def parse_xml(cli_opts: dict):
 
             all_tracks_in_pls.add(path)             # count unique tracks encountered
 
-            if not os.path.exists(path):
+            if not os.path.exists(path) and cli_opts['check_exists'] != "none":
 
-                # always track, even when option is "none" (see print statments at end of function)
-                pl_tracks_not_found.add(path+"\n")      # add path to set
-                all_tracks_not_found.add(path+"\n")
-                pl_incomplete = True
+                # try and find the track, with a fuzzy search
+                corrected_path = parsers.fuzzy_search(path, cli_opts['music_dir'], dir_sep)
 
-                # validate filepaths, if requested
-                if cli_opts['check_exists'] == "warn":
+                # double check (theoretically redundant)
+                if not corrected_path or not os.path.exists(corrected_path):
 
-                    print("\n\033[0;33mWarning\033[0m: unable to locate file:")
-                    print(f"\t'{tr.name}' by {tr.artist}")
-                    print(f"Expected it at: \"{path}\"")
-                    print("\033[0;33mWarning\033[0m: song not added to playlist")
-                    continue
+                    # always track, even when option is "none" (see prints at end of function)
+                    pl_tracks_not_found.add(path+"\n")      # add original path to set
+                    all_tracks_not_found.add(path+"\n")
+                    pl_incomplete = True
 
-                if cli_opts['check_exists'] == "error":
+                    # validate filepaths, if requested
+                    if cli_opts['check_exists'] == "warn":
 
-                    # don't need to worry about track misses and playlist completion,
-                    # since an error is raised when the first of either occurs
-                    raise FileNotFoundError(f"file {path} not found.")
+                        print("\n\033[0;33mWarning\033[0m: unable to locate file:")
+                        print(f"\t'{tr.name}' by {tr.artist}")
+                        print(f"Expected it at: \"{path}\"")
+                        print("\033[0;33mWarning\033[0m: song not added to playlist")
+                        continue
+
+                    if cli_opts['check_exists'] == "error":
+
+                        # don't need to worry about track misses and playlist completion,
+                        # since an error is raised when the first of either occurs
+                        raise FileNotFoundError(f"file {path} not found.")
+                else:
+                    path = corrected_path
 
             # execution reaches here if either:
             # 1) file exists
@@ -324,50 +333,55 @@ def main():
         gen_utils.show_ext_map(parsers.FILE_EXT_MAP)
         return
 
-    try:
+    if cli_opts['debug_mode']:
+
         parse_xml(cli_opts)
 
-    except FileNotFoundError as fnfe:
+    else:
+        try:
+            parse_xml(cli_opts)
 
-        print(f"\033[0;31mError\033[0m: {repr(fnfe)}")
-        print(("\033[0;33mNote\033[0m: this error can be thrown if the file exists, "
-            "but was given the wrong tr.file_ext by this program. To display the way "
-            "this program maps file types to tr.file_exts, execute the program "
-            "with the -t flag.\n"))
-        print(("If you would like the program to continue running even when a music "
-            "file is not found, execute the program with either `-c warn` or `-c none`.\n"))
-        print("\033[0;31mTerminating on error...\033[0m")
+        except FileNotFoundError as fnfe:
 
-        sys.exit(2)     # Linux ENOENT exit status
-    except PermissionError as pe:
+            print(f"\033[0;31mError\033[0m: {repr(fnfe)}")
+            print(("\033[0;33mNote\033[0m: this error can be thrown if the file exists, "
+                "but was given the wrong tr.file_ext by this program. To display the way "
+                "this program maps file types to tr.file_exts, execute the program "
+                "with the -t flag.\n"))
+            print(("If you would like the program to continue running even when a music "
+                "file is not found, execute the program with either `-c warn` or `-c none`.\n"))
+            print("\033[0;31mTerminating on error...\033[0m")
 
-        print(f"\033[0;31mError\033[0m: {repr(pe)}")
+            sys.exit(2)     # Linux ENOENT exit status
+        except PermissionError as pe:
 
-        # see what the permissions are
-        music_dir_stat = os.stat(cli_opts['music_dir'])
-        pl_dir_stat    = os.stat(cli_opts['playlist_dir'])
+            print(f"\033[0;31mError\033[0m: {repr(pe)}")
 
-        print(("Note: Jellyfin's configs (or possibly also your music library)"
-            "may belong to either the root user or the user that Jellyfin"
-            "uses to interact with the OS, `jellyfin`. Here are the file permissions"
-            "for the directories used:\n"))
+            # see what the permissions are
+            music_dir_stat = os.stat(cli_opts['music_dir'])
+            pl_dir_stat    = os.stat(cli_opts['playlist_dir'])
 
-        print(f"Music directory:      {cli_opts['music_dir']}")
-        print(f"    Owner: {music_dir_stat.st_uid}")
-        print(f"     Mode: {music_dir_stat.st_mode}")
-        print(f"Playlists directory:  {cli_opts['playlist_dir']}")
-        print(f"    Owner: {pl_dir_stat.st_uid}")
-        print(f"     Mode: {pl_dir_stat.st_mode}")
+            print(("Note: Jellyfin's configs (or possibly also your music library)"
+                "may belong to either the root user or the user that Jellyfin"
+                "uses to interact with the OS, `jellyfin`. Here are the file permissions"
+                "for the directories used:\n"))
 
-        print("\n\033[0;31mTerminating on error...\033[0m")
+            print(f"Music directory:      {cli_opts['music_dir']}")
+            print(f"    Owner: {music_dir_stat.st_uid}")
+            print(f"     Mode: {music_dir_stat.st_mode}")
+            print(f"Playlists directory:  {cli_opts['playlist_dir']}")
+            print(f"    Owner: {pl_dir_stat.st_uid}")
+            print(f"     Mode: {pl_dir_stat.st_mode}")
 
-    except OSError:
-        sys.exit(2)
+            print("\n\033[0;31mTerminating on error...\033[0m")
 
-    except Exception as e:
-        print(f"\033[0;31mUnexpected error encountered\033[0m: {repr(e)}")
-        print("\033[0;31mTerminating on error...\033[0m")
-        sys.exit(1)
+        except OSError:
+            sys.exit(2)
+
+        except Exception as e:
+            print(f"\033[0;31mUnexpected error encountered\033[0m: {repr(e)}")
+            print("\033[0;31mTerminating on error...\033[0m")
+            sys.exit(1)
 
     print("\n\n\033[0;32mConversion complete!\033[0m\n")
 

@@ -102,6 +102,15 @@ def parse_cli_args() -> dict:
                         (backslash file separator)"
                     )
 
+    ap.add_argument('-d', '--debug',
+                    action="store_true",
+                    default=False,
+                    required=False,
+                    dest="debug_mode",
+                    help="Don't catch any errors, allow Python to crash \
+                        and display stack trace."
+                    )
+
     # ap.add_argument('-l',
     #                 action="store_true",
     #                 default=False,
