@@ -129,49 +129,35 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
     """
     rel_tp   = track_path.replace(music_dir, "")    # remove music dir path
 
-    debug_mode = False
-    if "Death" in track_path:
-        debug_mode = True
     # For he sake of clarity, I am referring to each directory along a path,
     # as well as the name of the file to which it points, as "entries".
     # So `tp_parts` here is a `list` of entries.
     tp_parts = rel_tp.split(dir_sep)
 
-    for i, tp_entry in enumerate(tp_parts):
+    fixed_path = music_dir
 
-        lc_tp_ent = tp_entry.lower()
+    for entry in tp_parts:
 
-        # directory to search names in
-        partial_path = music_dir + dir_sep.join(tp_parts[:i])
-        if debug_mode:
-            print(f"\ntp_entry:     {tp_entry}")
-            print(f"lc_tp_entry:  {lc_tp_ent}")
-            print(f"partial_path: {partial_path}")
-        # if the current part of the path was unchanged from the last loop,
-        # and this conditional runs, then the file cannot be found using
-        # this simple algorithm. Return "".
-        if not os.path.exists(partial_path):
+        if not os.path.exists(fixed_path):
             return ""
 
-        # previous line protects call to os.listdir() from raising an exception
-        for entry in os.listdir(partial_path):
-            lc_ent = entry.lower()
+        lc_tp_entry = entry.lower()
 
-            if debug_mode:
-                print(f"\n\tentry:        {entry}")
-                print(f"\tlc_ent:       {lc_ent}")
-            # only do something if there is a difference between the current
-            # directory entry and the entry provided along the track_path
-            if tp_entry == entry:
-                continue
+        best_dir_to_add = entry         # whether the correct dir or simply from the original path
+        curr_dir        = os.listdir(fixed_path)
+        for dir_entry in curr_dir:
+            lc_de = dir_entry.lower()
 
-            if lc_tp_ent == lc_ent:
-                tp_parts[i] = entry
+            if lc_de == lc_tp_entry:
+                best_dir_to_add = dir_entry     # will result in some redundant assignments
 
-            elif lc_tp_ent in lc_ent and contains:
-                tp_parts[i] = entry
+            elif (lc_tp_entry in lc_de) and contains:
+                best_dir_to_add = dir_entry
 
-    fixed_path = music_dir + dir_sep.join(tp_parts)
+        fixed_path += best_dir_to_add + dir_sep
+
+    # loop adds trailing dir_sep, remove
+    fixed_path = fixed_path[:-1]
 
     return fixed_path
 
