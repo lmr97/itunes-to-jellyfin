@@ -41,9 +41,15 @@ does not download music this way by default, but it can).
 
 This program supports playlist organization into folders: it mirrors the
 structure of playlist folders in iTunes as given in the library file in the
-target playlist directory. Jellyfin, however, uses something called "collections"
-to organize media items, and collections expand to all media, not just music 
-or playlists, so collections have their own section in your Jellyfin library.
+target playlist directory. These folders won't show up in your list of playlists,
+however, since you'll simply have a flat list of all your playlists, despite
+the structure of the Playlist directory that this program makes. So, there's no
+great way to in Jellyfin to replicate iTunes' playlist folder feature. The
+closest thing in Jellyfin is something called "collections", which are used
+to organize any media items, not just music or playlists, so collections 
+have their own section in your Jellyfin library. You could make a collection of
+playlists if you wanted, but it won't clean up your playlists. Regardless, the
+correct directory structure is there for you to use as you see fit.
 """
 
 import sys

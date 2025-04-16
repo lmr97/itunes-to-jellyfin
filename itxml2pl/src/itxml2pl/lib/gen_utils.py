@@ -7,24 +7,29 @@ def parse_cli_args() -> dict:
     """
     Here are the options parsed for, and their descriptions
 
-    -x XMLFILE        Filepath to Library.xml. Assumed to be in working directory if omitted. 
+    -x, --library-xml XMLFILE
+                      Filepath to Library.xml. Assumed to be in working directory if omitted. 
 
-    -m SVR_MUSIC_DIR  Filepath to the directory where iTunes audio files are stored on
-                      the server, added to make M3U paths absolute. If omitted, all paths will 
+    -m, --music-dir SVR_MUSIC_DIR
+                      Filepath to the directory where iTunes audio files are stored on
+                      the server, added to make paths to tracks absolute. If omitted, all paths will 
                       be relative.
 
-    -p PLAYLIST_DIR   The directory where you would like your playlist files stored. It will be 
+    -p, --playlist-dir PLAYLIST_DIR
+                      The directory where you would like your playlist files stored. It will be 
                       created if it does not exist. If omitted, a directory named "Playlists" 
                       will be created in the working directory (if necessary) and filled with 
                       the playlist files. 
                       
 
-    -c {warn, error,  Check if song file at inferred path exists, and either warn or throw an 
-        none}         error. `none` only count if the file was not found, but add it to the playlist
+    -c, --check-exists {warn, error, none}
+                      Check if song file at inferred path exists, and either warn or throw an 
+                      error. `none` only count if the file was not found, but add it to the playlist
                       file anyway. Default: warn. Set to `none` if -m is absent. (cannot check path 
                       reliably). 
 
-    -f {m3u, xml}     The format to output the playlists info into. Defaults to XML. If `xml`
+    -f, --format {m3u, xml}
+                      The format to output the playlists info into. Defaults to XML. If `xml`
                       is chosen, the file will be formatted like Jellyfin's playlist XMLs,
                       but with <RunningTime>, <Genres>, and <OwnerUserID> tags omitted, as they
                       can be filled in with a rescan of the library (this will be relatively
@@ -32,16 +37,19 @@ def parse_cli_args() -> dict:
 
     -w                Use MSDOS (Windows) filepath conventions (backslash file separator).
 
-    -t                Show mapping of file types to file extensions used in the program and exit.
+    --debug           Don't catch any errors, allow Python to crash so it will display the 
+                      stack trace.
 
-    -h                Display this help info and exit. (-h is added in ArgumentParser by default)
+    -t, --ext-map     Show mapping of file types to file extensions used in the program and exit.
+
+    -h, --help        Display this help info and exit. (-h is added in ArgumentParser by default)
     """
     ap = ArgumentParser(
-        description="A simple utility to generate .m3u files from an iTunes / Apple Music's \
-            exported Library file (XML)"
+        description="A simple utility to generate playlist files from an iTunes / Apple Music's \
+            exported Library file (XML), tailored to Jellyfin's playlist format."
         )
 
-    ap.add_argument('-x', '--xml-file',
+    ap.add_argument('-x', '--library-xml',
                     required=False,
                     default="Library.xml",
                     dest="xml_file",
@@ -56,8 +64,8 @@ def parse_cli_args() -> dict:
                     dest="music_dir",
                     metavar="SVR_MUSIC_DIR",
                     help="Filepath to the directory where iTunes audio files are \
-                        stored on the server, added to make M3U paths absolute. If omitted, \
-                        all paths will be relative."
+                        stored on the server, added to make paths to tracks absolute. \
+                        If omitted, all paths will be relative."
                     )
 
     ap.add_argument('-p', '--playlist-dir',
@@ -102,13 +110,13 @@ def parse_cli_args() -> dict:
                         (backslash file separator)"
                     )
 
-    ap.add_argument('-d', '--debug',
+    ap.add_argument('--debug',
                     action="store_true",
                     default=False,
                     required=False,
                     dest="debug_mode",
                     help="Don't catch any errors, allow Python to crash \
-                        and display stack trace."
+                        so it will display the stack trace."
                     )
 
     # ap.add_argument('-l',
@@ -123,7 +131,7 @@ def parse_cli_args() -> dict:
     #                     directory root."
     #                 )
 
-    ap.add_argument('-t',
+    ap.add_argument('-t', '--ext-map',
                     action="store_true",
                     default=False,
                     dest="show_ext_map",
