@@ -137,7 +137,8 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
     fixed_path = music_dir
 
     for tp_entry in tp_parts:
-
+        if "Death" in track_path:
+            print("\n",fixed_path)
         if not os.path.exists(fixed_path):
             return ""
 
@@ -160,7 +161,6 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
 
     # loop adds trailing dir_sep, remove
     fixed_path = fixed_path[:-1]
-    print("\n",fixed_path)
 
     return fixed_path
 
