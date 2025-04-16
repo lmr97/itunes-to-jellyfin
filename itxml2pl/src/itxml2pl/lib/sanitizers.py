@@ -10,7 +10,7 @@ def sanitize_path(entry: str, attribute: str) -> str:
     confuse the OS when it's a part of a path. Most of these characters
     are MacOS' preferences, but a couple are Jellyfin's.
     """
-    invalid_chars   = ["/", "\\", "\"", "'", "?", ":", "<", ">", "*", "|"]
+    invalid_chars   = ["/", "\\", "\"", "’", "?", ":", "<", ">", "*", "|"]
 
     for char in invalid_chars:
         if char in entry:
