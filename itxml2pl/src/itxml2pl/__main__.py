@@ -239,11 +239,16 @@ def parse_xml(cli_opts: dict):
                     dir_sep,
                     contains=True)
 
-                if not corrected_path or not os.path.exists(corrected_path):
+                if not os.path.exists(corrected_path):
 
                     # always track, even when option is "none" (see prints at end of function)
-                    pl_tracks_not_found.add(path+"\n")      # add original path to set
-                    all_tracks_not_found.add(path+"\n")
+                    if not corrected_path:
+                        pl_tracks_not_found.add(path+"\n")      # add original path to set
+                        all_tracks_not_found.add(path+"\n")
+                    else:
+                        pl_tracks_not_found.add(corrected_path+"\n")      # add original path to set
+                        all_tracks_not_found.add(corrected_path+"\n")
+
                     pl_incomplete = True
 
                     # validate filepaths, if requested
