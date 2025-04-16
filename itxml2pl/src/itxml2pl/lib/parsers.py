@@ -158,6 +158,7 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
 
     # loop adds trailing dir_sep, remove
     fixed_path = fixed_path[:-1]
+    print(fixed_path)
 
     return fixed_path
 

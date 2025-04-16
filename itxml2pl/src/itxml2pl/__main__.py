@@ -239,7 +239,6 @@ def parse_xml(cli_opts: dict):
                     dir_sep,
                     contains=True)
 
-                # double check (theoretically redundant)
                 if not corrected_path or not os.path.exists(corrected_path):
 
                     # always track, even when option is "none" (see prints at end of function)
