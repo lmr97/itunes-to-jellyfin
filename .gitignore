@@ -3,3 +3,5 @@ Music/
 *.xml
 pv/
 sync-new-dls
+itxml2pl/src/itxml2pl.egg-info/
+itxml2pl/build/
