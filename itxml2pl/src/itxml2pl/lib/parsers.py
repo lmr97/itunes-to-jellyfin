@@ -152,8 +152,8 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
             if lc_de == lc_tp_entry:
                 best_dir_to_add = dir_entry     # will result in some redundant assignments
 
-            # elif (lc_tp_entry in lc_de) and contains:
-            #     best_dir_to_add = dir_entry
+            if (lc_tp_entry in lc_de) and contains:
+                best_dir_to_add = dir_entry
 
         fixed_path += best_dir_to_add + dir_sep
 
