@@ -21,7 +21,7 @@ While I've tried to not leave Windows users out in the cold on this one, my expe
 
 ## The Process
 
-### Step 1 &mdash; Download your entire library to an external drive
+### Step 1 &mdash; Download your entire library to an external drive (on the source computer)
 
 1. From the top bar, select **View > Show Status Bar**. This will add a bar at the bottom of the window with the size of your library in term of computer memory (GB, MB, etc.). Make sure your disk has at least this much space.
 
@@ -31,9 +31,7 @@ While I've tried to not leave Windows users out in the cold on this one, my expe
 
 4. Select all songs in your library, right-click, then hit **Download**. This could take a long time: on my MacBook Air, songs downloaded at a rate of about 50 songs/min, so it took around 3 hours to download the over 10k songs I had.
 
-### Step 2 &mdash; Generate .m3u playlist files
-
-Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playlists, which are simply text files with one filepath to a song for each song in the playlist, one filepath on each line.  
+### Step 2 &mdash; Export your library
 
 1. Export your iTunes library by selecting **File > Library > Export Library...** 
 
@@ -43,9 +41,9 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
 
 1. (You can skip this step if your server has the same OS type and version as your source machine). Check the **filesystem type on your external hard drive**. On a Mac, this can be seen by bringing up your drive on the Disk Utility app. The filesystem name will be next to the name of your drive. Older Macs tend to have a HFS+ filesystem (Hierarchical File System Plus), while newer ones tend to have APFS filesystems (Apple File System). 
 
-2. **Eject the drive** from the source. Make sure this completes safely.
+2. **Eject the drive** from the source. Make sure this completes.
 
-3. **Mount the drive** on the server, making sure to use a utility that can interpret the drive's filesystem into your server's filesystem. Below are some resources that can help:
+3. **Mount the drive** on the server. If you don't encounter any issues doing this, skip to the next step. Otherwise, make sure you're using a utility that can interpret the drive's filesystem into your server's filesystem. The drive may not be formatted in a way the server's OS can understand. First check the file system on your drive (on a Mac you would use the Disk Utility app). Once you've identified the file system, and its either HFS+ or APFS, try some of these resources:
     - [HFS+ to Linux](https://superuser.com/questions/84446/how-to-mount-a-hfs-partition-in-ubuntu-as-read-write) (for Ubuntu, but should point you in the right direction for your distro)
     - [HFS+ to Windows](https://www.provideocoalition.com/use-mac-drive-on-pc/)
     - [APFS to Linux](https://github.com/sgan81/apfs-fuse) (it's a GitHub repo; have fun!)
@@ -58,17 +56,20 @@ Jellyfin needs [M3U files](https://en.wikipedia.org/wiki/M3U) to assemble playli
 
 For this step, see [Jellyfin's installation guide](https://jellyfin.org/docs/general/installation/) for instructions for your server setup.
 
-Since Jellyfin runs its commands, not as your user, but as a user called `jellyfin`, you need to give the `jellyfin` user access to your music. It only needs read and execute access, and often the user group in your name has these permissions for all your files. So if you're on Linux, you can add `jellyfin` to your user group by running:
+Since Jellyfin runs its commands, not as your user, but as a user called `jellyfin`, you need to give the `jellyfin` user access to your music. If you're on Linux/Mac, it works best if you give the `jellyfin` user ownership of the media directory, and add it to your user's group:
 
 ```
+sudo chown -R jellyfin <your media directory>
 sudo gpasswd --add jellyfin $USER
 ```
+
+You'll also want the web client, as that gives you a nice GUI for Jellyfin, accessible through your browser. The rest of the steps assume you are using the web client.
 
 ### Step 5 &mdash; Add music and playlists to Jellyfin
 
 1. **Make a playlist through Jellyfin**. You can do so by finding a song, clicking the **triple-dot** icon, and selecting **Add to Playlist** from the menu, and fill out the relevant information. 
 
-3. **Find the playlist** you made, then click the **triple-dot**, and go to **Edit Metadata...**, and note down what the Path to the playlist is. The parent folder of the folder at the end of the path is where all your playlists should be placed (more on that shortly). I'll call this directory `playlist_dir` below.
+3. **Find the playlist** you made, then click the **triple-dot**, and go to **Edit Metadata...**, and note down what the Path to the playlist is. The parent folder of the folder at the end of the path is where all your playlists should be placed (more on that shortly). If you're using a Docker container, the directory we need is the local one *outside* the container, not the path from within the container. I'll call this directory `playlist_dir` below.
 
 ### Step 6 &mdash; Convert your playlists
 
@@ -105,17 +106,11 @@ sudo gpasswd --add jellyfin $USER
         -p playlist_dir
     ```
     
-    **Note**: If you're running your Jellyfin server from a **Docker** container, the path to you music directory has to be the path *from within the container* (if you [bind-mounted](https://stackoverflow.com/questions/47150829/what-is-the-difference-between-binding-mounts-and-volumes-while-handling-persist) the directory), not the path to the directory on your machine's local filesystem. So, for instance, if you store your music in `/media/Music`, and that directory is bind-mounted on `/Music` in the Docker container, then the argument you'd invoke the program as `itxml2pl -m /Music <other args>`, not `itxml2pl -m /media/Music <other args>`.
+    **Note**: If you're running your Jellyfin server from a **Docker** container, the path to you music directory has to be the path *from within the container* (if you [bind-mounted](https://stackoverflow.com/questions/47150829/what-is-the-difference-between-binding-mounts-and-volumes-while-handling-persist) the directory), not the path to the directory on your machine's local filesystem. So, for instance, if you store your music in `/media/Music`, and that directory is bind-mounted on `/Music` in the Docker container, then the argument you'd invoke the program as `itxml2pl -m /Music <other args>`, not `itxml2pl -m /media/Music <other args>`. As a reminder, `playlist_dir` is the path on your source computer's file system, regardless of whether Jellyfin is running from a container or not. 
 
-    `itxml2pl` will generate relative paths in the M3U files if the `-m` option is omitted. `-p` is optional, and if omitted will place M3U files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    `itxml2pl` will generate relative paths in the playlist files if the `-m` option is omitted. `-p` is technically optional, and if omitted will place the playlist files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
     
     You can run `itxml2pl --help` to see all available options. 
-
-    #### Upcoming features
-
-    - Mirror iTunes playlist folder structure using Jellyfin's collections
-
-    - Ability to specify separate music directory to use in checking if music files exist (for Docker)
 
 
 ### Step 7 &mdash; Rescan library
