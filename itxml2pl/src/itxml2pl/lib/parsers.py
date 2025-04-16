@@ -68,11 +68,18 @@ def lookup_song(track_id_el: etree.Element,
 
 
 
-def fuzzy_search(track_path: str, music_dir: str, dir_sep: str) -> str:
+def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) -> str:
     """
     Descend along the track path, returning the correct path if found. 
 
-    For instance, if track_path == "/Music/Jane Shepard/Greatest hits/Renegade.ogg"
+    track_path: the path to the track file that has not yet been found
+    music_dir:  the path to the Music root directory
+    dir_sep:    the OS-appropriate directory separator
+    contiains:  allow matches to simply contain the current entry string 
+                (e.g. "greatest" will match "Greatest Hits"). still accounts 
+                for differences in capitalization.
+
+    As an example, if track_path == "/Music/Jane Shepard/Greatest hits/Renegade.ogg"
     and `/Music` is laid out like so -- 
 
         ```
@@ -121,26 +128,40 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str) -> str:
     a null string.
     """
     rel_tp   = track_path.replace(music_dir, "")    # remove music dir path
-    tp_parts = rel_tp.split(dir_sep)                # get pieces of track path
+
+    # For he sake of clarity, I am referring to each directory along a path,
+    # as well as the name of the file to which it points, as "entries".
+    # So `tp_parts` here is a `list` of entries.
+    tp_parts = rel_tp.split(dir_sep)
 
     for i, tp_entry in enumerate(tp_parts):
 
-        lc_tp_part = tp_entry.lower()
+        lc_tp_ent = tp_entry.lower()
 
         # directory to search names in
         partial_path = music_dir + dir_sep.join(tp_parts[:i])
 
-        for directory in os.listdir(partial_path):
-            lc_dir = directory.lower()
+        # if the current part of the path was unchanged from the last loop,
+        # and this conditional runs, then the file cannot be found using
+        # this simple algorithm. Return "".
+        if not os.path.exists(partial_path):
+            return ""
 
-            if lc_tp_part == lc_dir and tp_entry != directory:
-                tp_parts[i] = directory
+        # previous line protects call to os.listdir() from raising an exception
+        for entry in os.listdir(partial_path):
+            lc_ent = entry.lower()
+
+            # only do something if there is a difference between the current
+            # directory entry and the entry provided along the track_path
+            if tp_entry != entry:
+
+                if lc_tp_ent == lc_ent:
+                    tp_parts[i] = entry
+
+                elif lc_tp_ent in lc_ent and contains:
+                    tp_parts[i] = entry
 
     fixed_path = music_dir + dir_sep.join(tp_parts)
-
-    # if we didn't change anything, handle it here
-    if fixed_path == track_path:
-        return ""
 
     return fixed_path
 
