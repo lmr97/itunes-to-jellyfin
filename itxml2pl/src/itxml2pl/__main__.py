@@ -234,7 +234,10 @@ def parse_xml(cli_opts: dict):
             if not os.path.exists(path) and cli_opts['check_exists'] != "none":
 
                 # try and find the track, with a fuzzy search
-                corrected_path = parsers.fuzzy_search(path, cli_opts['music_dir'], dir_sep, contains=True)
+                corrected_path = parsers.fuzzy_search(path,
+                    cli_opts['music_dir'],
+                    dir_sep,
+                    contains=True)
 
                 # double check (theoretically redundant)
                 if not corrected_path or not os.path.exists(corrected_path):
