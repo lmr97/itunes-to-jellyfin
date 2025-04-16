@@ -140,9 +140,9 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
 
         # directory to search names in
         partial_path = music_dir + dir_sep.join(tp_parts[:i])
-        print(f"tp_entry:     {tp_entry}")
-        print(f"lc_tp_entry:  {lc_tp_ent}")
-        print(f"partial_path: {partial_path}")
+        # print(f"\ntp_entry:     {tp_entry}")
+        # print(f"lc_tp_entry:  {lc_tp_ent}")
+        # print(f"partial_path: {partial_path}")
         # if the current part of the path was unchanged from the last loop,
         # and this conditional runs, then the file cannot be found using
         # this simple algorithm. Return "".
@@ -153,8 +153,8 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
         for entry in os.listdir(partial_path):
             lc_ent = entry.lower()
 
-            print(f"\nentry:        {entry}")
-            print(f"lc_ent:       {lc_ent}")
+            # print(f"\nentry:        {entry}")
+            # print(f"lc_ent:       {lc_ent}")
             # only do something if there is a difference between the current
             # directory entry and the entry provided along the track_path
             if tp_entry == entry:
@@ -165,8 +165,6 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
 
             elif lc_tp_ent in lc_ent and contains:
                 tp_parts[i] = entry
-
-        print()
 
     fixed_path = music_dir + dir_sep.join(tp_parts)
 
