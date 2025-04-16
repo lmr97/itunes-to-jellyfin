@@ -139,6 +139,14 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
     for tp_entry in tp_parts:
         if "Death" in track_path:
             print("\n",fixed_path)
+
+        # no need to check through all entries in directory if the next track_path
+        # part already exists
+        if os.path.exists(fixed_path+tp_entry):
+            continue
+
+        # if the best directory to append to the fixed path last loop still isn't one that
+        # exists, we're not finding the file; return ""
         if not os.path.exists(fixed_path):
             return ""
 
@@ -153,9 +161,8 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
             if lc_de == lc_tp_entry:
                 best_dir_to_add = dir_entry     # will result in some redundant assignments
 
-            if contains:
-                if lc_tp_entry in lc_de:
-                    best_dir_to_add = dir_entry
+            if lc_tp_entry in lc_de and contains:
+                best_dir_to_add = dir_entry
 
         fixed_path += best_dir_to_add + dir_sep
 
