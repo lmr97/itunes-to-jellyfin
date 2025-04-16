@@ -137,8 +137,6 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
     fixed_path = music_dir
 
     for tp_entry in tp_parts:
-        if "Death" in track_path:
-            print("\n",fixed_path)
 
         # no need to check through all entries in directory if the next track_path
         # part already exists
