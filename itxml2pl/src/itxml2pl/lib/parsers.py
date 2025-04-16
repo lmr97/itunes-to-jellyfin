@@ -143,6 +143,7 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
         # no need to check through all entries in directory if the next track_path
         # part already exists
         if os.path.exists(fixed_path+tp_entry):
+            fixed_path += tp_entry + dir_sep
             continue
 
         # if the best directory to append to the fixed path last loop still isn't one that
