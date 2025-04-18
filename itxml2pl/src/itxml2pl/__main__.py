@@ -221,20 +221,25 @@ def parse_xml(cli_opts: dict):
             tr_el = parsers.lookup_song(tr_id_el, all_tracks)
             tr    = Track(tr_el)
 
-            # check ext was found for the file type first, because if not, we can skip a loop
-            if not tr.file_ext:
-                continue
+            # path to check for file existence; may not be the same as path included in
+            # playlist file if Jellyfin runs in a container.
+            rel_path   = dir_sep.join([tr.artist_dir, tr.album, tr.track_num + tr.name]) \
+                            + tr.file_ext
+            check_path = cli_opts['music_dir'] + rel_path
 
-            path   = cli_opts['music_dir'] \
-                        + dir_sep.join([tr.artist_dir, tr.album, tr.track_num + tr.name]) \
-                        + tr.file_ext
 
-            all_tracks_in_pls.add(path)             # count unique tracks encountered
+            if cli_opts['docker_dir']:
+                path = cli_opts['docker_dir'] + rel_path
+            else:
+                path = check_path
 
-            if not os.path.exists(path) and cli_opts['check_exists'] != "none":
+
+            all_tracks_in_pls.add(check_path)             # count unique tracks encountered
+
+            if not os.path.exists(check_path) and cli_opts['check_exists'] != "none":
 
                 # try and find the track, with a fuzzy search
-                corrected_path = parsers.fuzzy_search(path,
+                corrected_path = parsers.fuzzy_search(check_path,
                     cli_opts['music_dir'],
                     dir_sep,
                     contains=True)
@@ -243,10 +248,10 @@ def parse_xml(cli_opts: dict):
 
                     # always track, even when option is "none" (see prints at end of function)
                     if not corrected_path:
-                        pl_tracks_not_found.add(path+"\n")      # add original path to set
-                        all_tracks_not_found.add(path+"\n")
+                        pl_tracks_not_found.add(check_path+"\n")          # add original path to set
+                        all_tracks_not_found.add(check_path+"\n")
                     else:
-                        pl_tracks_not_found.add(corrected_path+"\n")      # add original path to set
+                        pl_tracks_not_found.add(corrected_path+"\n")      # add failed correction
                         all_tracks_not_found.add(corrected_path+"\n")
 
                     pl_incomplete = True
@@ -333,6 +338,7 @@ def main():
         music_dir:         "",
         playlist_dir:      "Playlists/",
         check_exists:      "warn",
+        docker_dir:        "",
         output_format:     "xml",
         use_dos_filepaths: False,
         show_ext_map:      False

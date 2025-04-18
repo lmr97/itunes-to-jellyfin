@@ -46,7 +46,12 @@ def parse_cli_args() -> dict:
     """
     ap = ArgumentParser(
         description="A simple utility to generate playlist files from an iTunes / Apple Music's \
-            exported Library file (XML), tailored to Jellyfin's playlist format."
+            exported Library file (XML), tailored to Jellyfin's playlist format.\n\
+            Places songs not found in the specified music directory, the searched path \
+            is placed in a file called 00tracks_not_found.m3u in the given playlist directory, \
+            and lists the playlists that are missing songs in 00incomplete_playlists.txt in the same place.\n\
+            For each playlist, a file with a .missing extension is made with the paths to songs that were \
+            not found. This allows the user to correct generated playlist files."
         )
 
     ap.add_argument('-x', '--library-xml',
@@ -56,7 +61,7 @@ def parse_cli_args() -> dict:
                     metavar="XML_FILE",
                     help="""Filepath to Library.xml. Assumed to be in working directory \
                         if this argument is omitted."""
-                    )
+        )
 
     ap.add_argument('-m', '--music-dir',
                     default="",
@@ -66,7 +71,7 @@ def parse_cli_args() -> dict:
                     help="Filepath to the directory where iTunes audio files are \
                         stored on the server, added to make paths to tracks absolute. \
                         If omitted, all paths will be relative."
-                    )
+        )
 
     ap.add_argument('-p', '--playlist-dir',
                     default="Playlists/",
@@ -76,18 +81,29 @@ def parse_cli_args() -> dict:
                     help="The directory where you would like your playlist files stored. \
                         If omitted, a directory named \"Playlists\" will be filled with \
                         these files in the working directory."
-                    )
+        )
 
     ap.add_argument('-c', '--check-exists',
                     default="warn",
                     choices=["warn", "error", "none"],
                     required=False,
                     dest="check_exists",
-                    help="Check if song file at inferred path exists, and either warn or throw an \
-                      error. `none` only count if the file was not found, but add it to the playlist \
-                      file anyway. Default: warn. Set to `none` if -m is absent. (cannot check path \
-                      reliably)."
-                    )
+                    help="Check if song file at inferred (local) path exists, and either warn \
+                      or throw an error. If `none`, only count if the file was not found, and \
+                      log it in the not-found file, but add it to the playlist file anyway. \
+                      Default: warn. Set to `none` if -m is absent. (cannot check path reliably)."
+        )
+
+    ap.add_argument('-d', '--docker-dir',
+                    default="",
+                    required=False,
+                    dest="docker_dir",
+                    help="If you're running Jellyfin within a Docker container, use this option to \
+                        specify the absolute path to the music directory from inside the Docker \
+                        container. For instance, if your local music directory was at /media/Music, \
+                        and was mounted at /Data/Music in your container, you would use /Data/Music \
+                        for this option."
+        )
 
     ap.add_argument('-f', '--format',
                     default="xml",
@@ -99,7 +115,7 @@ def parse_cli_args() -> dict:
                       but with <RunningTime>, <Genres>, and <OwnerUserID> tags omitted, as they \
                       can be filled in with a rescan of the library (this will be relatively \
                       brief if the music has been scanned already)."
-                    )
+        )
 
     ap.add_argument('-w', '--dos-filepaths',
                     action="store_true",
@@ -108,16 +124,16 @@ def parse_cli_args() -> dict:
                     dest="use_dos_filepaths",
                     help="Use MSDOS (Windows) filepath conventions \
                         (backslash file separator)"
-                    )
+        )
 
     ap.add_argument('--debug',
                     action="store_true",
                     default=False,
                     required=False,
                     dest="debug_mode",
-                    help="Don't catch any errors, allow Python to crash \
+                    help="Don't catch any errors; allow Python to crash \
                         so it will display the stack trace."
-                    )
+        )
 
     # ap.add_argument('-l',
     #                 action="store_true",
