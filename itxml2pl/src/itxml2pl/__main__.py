@@ -236,7 +236,7 @@ def parse_xml(cli_opts: dict):
 
             all_tracks_in_pls.add(check_path)             # count unique tracks encountered
 
-            if not os.path.exists(check_path) and cli_opts['check_exists'] != "none":
+            if not os.path.exists(check_path):
 
                 # try and find the track, with a fuzzy search
                 corrected_path = parsers.fuzzy_search(check_path,
