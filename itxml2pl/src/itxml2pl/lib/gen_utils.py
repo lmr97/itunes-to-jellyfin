@@ -188,12 +188,11 @@ def ensure_slash(opts: dict) -> dict:
     if opts['use_dos_filepaths']:
         fp_slash = "\\"
 
-    if opts['playlist_dir'][-1] != fp_slash:
-        opts['playlist_dir'] += fp_slash
+    path_args = ['playlist_dir', 'music_dir', 'docker_dir']
 
-    if opts['music_dir']:
-        if opts['music_dir'][-1] != fp_slash:
-            opts['music_dir'] += fp_slash
+    for arg in path_args:
+        if opts[arg][-1] != fp_slash:
+            opts[arg] += fp_slash
 
     return opts
 
