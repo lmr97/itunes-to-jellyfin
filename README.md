@@ -56,12 +56,25 @@ While I've tried to not leave Windows users out in the cold on this one, my expe
 
 For this step, see [Jellyfin's installation guide](https://jellyfin.org/docs/general/installation/) for instructions for your server setup.
 
-Since Jellyfin runs its commands, not as your user, but as a user called `jellyfin`, you need to give the `jellyfin` user access to your music. If you're on Linux/Mac, it works best if you give the `jellyfin` user ownership of the media directory, and add it to your user's group:
+Since Jellyfin runs its commands, not as your user, but as a user called `jellyfin`, you need to give the `jellyfin` user access to your music. If you're on Linux/Mac, it works best if do the following:
 
-```
-sudo chown -R jellyfin <your media directory>
-sudo gpasswd --add jellyfin $USER
-```
+1. Add the user `jellyfin` to the group with your username:
+
+    ```
+    sudo gpasswd --add jellyfin $USER
+    ```
+
+2. Give `jellyfin` user ownership of your media directory, and set the owning group to your user's group:
+
+    ```
+    sudo chown -R jellyfin:$USER <your media directory>
+    ```
+
+3. Allow your group read/write access to the media directory:
+
+    ```
+    sudo chmod -R g+rw <your media directory>
+    ```
 
 You'll also want the web client, as that gives you a nice GUI for Jellyfin, accessible through your browser. The rest of the steps assume you are using the web client.
 
@@ -103,19 +116,34 @@ You'll also want the web client, as that gives you a nice GUI for Jellyfin, acce
     itxml2pl \
         -x <path to Library.xml> \
         -m <path to music dir on server> \
-        -p playlist_dir
+        [-d <path to music within Docker container>]
+        -p playlist_dir \
     ```
     
-    **Note**: If you're running your Jellyfin server from a **Docker** container, the path to you music directory has to be the path *from within the container* (if you [bind-mounted](https://stackoverflow.com/questions/47150829/what-is-the-difference-between-binding-mounts-and-volumes-while-handling-persist) the directory), not the path to the directory on your machine's local filesystem. So, for instance, if you store your music in `/media/Music`, and that directory is bind-mounted on `/Music` in the Docker container, then the argument you'd invoke the program as `itxml2pl -m /Music <other args>`, not `itxml2pl -m /media/Music <other args>`. As a reminder, `playlist_dir` is the path on your source computer's file system, regardless of whether Jellyfin is running from a container or not. 
+    #### Usage notes
 
-    `itxml2pl` will generate relative paths in the playlist files if the `-m` option is omitted. `-p` is technically optional, and if omitted will place the playlist files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
+    `itxml2pl` will generate relative paths in the playlist files if the `-m` option is omitted. `-p` is also technically optional, and if omitted will place the playlist files in a folder called "Playlists" in the current working directory. If your server is running Windows, add `-w` to the command to use DOS filepaths. 
     
     You can run `itxml2pl --help` to see all available options. 
+
+    #### For Jellyfin running in a Docker container
+
+    If you're running your Jellyfin server from a **Docker** container, I should tell you that this program only supports containers that used [bind-mounted](https://stackoverflow.com/questions/47150829/what-is-the-difference-between-binding-mounts-and-volumes-while-handling-persist) directories for configuration and media directories, not volumes. If you're using volumes, you'll probably need to find another solution (maybe you use this program if you can install and run it inside the container, although I haven't tried that). 
+    
+    But if you're using bind mounts, you can add the `-d` option with the path to your music *from within the container*. So, for instance, if you store your music in `/media/Music`, and that directory is bind-mounted on `/Music` in the Docker container, then the argument you'd invoke the program as `itxml2pl -m /media/Music -d /Music <other args>`. `playlist_dir` is the path on your source computer's file system, regardless of whether Jellyfin is running from a container or not. 
 
 
 ### Step 7 &mdash; Rescan library
 
-You need to have access to Jellyfin administration tools for this. To rescan library, click the [hamburger](https://en.wikipedia.org/wiki/Hamburger_button), and select **Dashboard**. From there, click **Rescan All Libraries**. If you've already scanned your library before (which has probably already been done as a part of the Jellyfin install process), then this will be fairly quick.
+You need to have access to Jellyfin administration tools for this. To rescan library: 
+
+1. Click the [hamburger](https://en.wikipedia.org/wiki/Hamburger_button)
+
+2. Click **Dashboard** 
+
+3. Click **Rescan All Libraries**. 
+    
+If you've already scanned your library before (which has probably already been done as a part of the Jellyfin install process), then this will be fairly quick.
 
 ## Syncing later downloads
 
@@ -126,5 +154,13 @@ rsync -r --progress <path to source music directory> <user@remote-host:/path/to/
 ```
 
 It'll only add new files into the correct folders, creating them if necessary, but leave the ones you already have.
+
+## Troubleshooting
+
+If you have any issues with the process above, submit an issue on this repo, and I'll address it, and include the solution here below (if it's not an actual issue with the process, of course). 
+
+### Other Jellyfin troubleshooting resources
+
+- [ArchWiki's entry for Jellyfin](https://wiki.archlinux.org/title/Jellyfin#Troubleshooting): for Jellyfin instances running on Linux (non-Dockerized), and on Arch specifically
 
 ### Thanks for reading! I hope this helps with your great migration!
