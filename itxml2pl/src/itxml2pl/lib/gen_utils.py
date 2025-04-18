@@ -7,42 +7,44 @@ def parse_cli_args() -> dict:
     """
     Here are the options parsed for, and their descriptions
 
-    -x, --library-xml XMLFILE
-                      Filepath to Library.xml. Assumed to be in working directory if omitted. 
-
+    -h, --help              show this help message and exit (-h is added in ArgumentParser by default)
+    -x, --library-xml XML_FILE
+                            Filepath to Library.xml. Assumed to be in working directory if
+                            this argument is omitted.
     -m, --music-dir SVR_MUSIC_DIR
-                      Filepath to the directory where iTunes audio files are stored on
-                      the server, added to make paths to tracks absolute. If omitted, all paths will 
-                      be relative.
-
+                            Filepath to the directory where iTunes audio files are stored on
+                            the server, added to make paths to tracks absolute. If omitted,
+                            all paths will be relative.
     -p, --playlist-dir PLAYLIST_DIR
-                      The directory where you would like your playlist files stored. It will be 
-                      created if it does not exist. If omitted, a directory named "Playlists" 
-                      will be created in the working directory (if necessary) and filled with 
-                      the playlist files. 
-                      
-
-    -c, --check-exists {warn, error, none}
-                      Check if song file at inferred path exists, and either warn or throw an 
-                      error. `none` only count if the file was not found, but add it to the playlist
-                      file anyway. Default: warn. Set to `none` if -m is absent. (cannot check path 
-                      reliably). 
-
-    -f, --format {m3u, xml}
-                      The format to output the playlists info into. Defaults to XML. If `xml`
-                      is chosen, the file will be formatted like Jellyfin's playlist XMLs,
-                      but with <RunningTime>, <Genres>, and <OwnerUserID> tags omitted, as they
-                      can be filled in with a rescan of the library (this will be relatively
-                      brief if the music has been scanned already).    
-
-    -w                Use MSDOS (Windows) filepath conventions (backslash file separator).
-
-    --debug           Don't catch any errors, allow Python to crash so it will display the 
-                      stack trace.
-
-    -t, --ext-map     Show mapping of file types to file extensions used in the program and exit.
-
-    -h, --help        Display this help info and exit. (-h is added in ArgumentParser by default)
+                            The directory where you would like your playlist files stored. If
+                            omitted, a directory named "Playlists" will be filled with these
+                            files in the working directory.
+    -c, --check-exists {warn,error,none}
+                            Check if song file at inferred (local) path exists, and either
+                            warn or throw an error, or stay silent (`none`). If `none`, only
+                            count if the file was not found, and log it in the not-found files
+                            (playlist-level and total), but add it to the playlist file
+                            anyway. Default: warn. Set to `none` if -m is absent, since the
+                            path cannot reliably be checked.
+    -d, --docker-dir DOCKER_DIR
+                            If you're running Jellyfin within a Docker container, use this
+                            option to specify the absolute path to the music directory from
+                            inside the Docker container. For instance, if your local music
+                            directory was at /media/Music, and was mounted at /Data/Music in
+                            your container, you would use /Data/Music for this option.
+    -f, --format {xml,m3u}
+                            The format to output the playlists info into. Defaults to XML. If
+                            `xml` is chosen, the file will be formatted like Jellyfin's
+                            playlist XMLs, but with <RunningTime>, <Genres>, and <OwnerUserID>
+                            tags omitted, as they can be filled in with a rescan of the
+                            library (this will be relatively brief if the music has been
+                            scanned already).
+    -w, --dos-filepaths   Use MSDOS (Windows) filepath conventions (backslash file
+                            separator)
+    --debug               Don't catch any errors; allow Python to crash so it will display
+                            the stack trace.
+    -t, --ext-map         Show mapping of file types to file extensions used in the program
+                            and exit.
     """
     ap = ArgumentParser(
         description="A simple utility to generate playlist files from an iTunes / Apple Music's \
@@ -127,6 +129,15 @@ def parse_cli_args() -> dict:
                         (backslash file separator)"
         )
 
+    ap.add_argument('-t', '--ext-map',
+                    action="store_true",
+                    default=False,
+                    dest="show_ext_map",
+                    required=False,
+                    help="Show mapping of file types to file extensions \
+                        used in the program and exit."
+                    )
+
     ap.add_argument('--debug',
                     action="store_true",
                     default=False,
@@ -136,26 +147,6 @@ def parse_cli_args() -> dict:
                         so it will display the stack trace."
         )
 
-    # ap.add_argument('-l',
-    #                 action="store_true",
-    #                 default=False,
-    #                 required=False,
-    #                 dest="flat_music_dir",
-    #                 help="Flat music directory: all music files are in \
-    #                     the same directory, without any folders between \
-    #                     the file and the music directory root. With this \
-    #                     option, all paths are relative only to the music \
-    #                     directory root."
-    #                 )
-
-    ap.add_argument('-t', '--ext-map',
-                    action="store_true",
-                    default=False,
-                    dest="show_ext_map",
-                    required=False,
-                    help="Show mapping of file types to file extensions \
-                        used in the program and exit."
-                    )
 
     cli_args = vars(ap.parse_args())
 
