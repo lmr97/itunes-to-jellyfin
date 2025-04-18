@@ -89,9 +89,10 @@ def parse_cli_args() -> dict:
                     required=False,
                     dest="check_exists",
                     help="Check if song file at inferred (local) path exists, and either warn \
-                      or throw an error. If `none`, only count if the file was not found, and \
-                      log it in the not-found file, but add it to the playlist file anyway. \
-                      Default: warn. Set to `none` if -m is absent. (cannot check path reliably)."
+                      or throw an error, or stay silent (`none`). If `none`, only count if the \
+                      file was not found, and log it in the not-found files (playlist-level \
+                      and total), but add it to the playlist file anyway. Default: warn. Set \
+                      to `none` if -m is absent, since the path cannot reliably be checked."
         )
 
     ap.add_argument('-d', '--docker-dir',

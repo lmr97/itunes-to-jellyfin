@@ -144,13 +144,7 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
             fixed_path += tp_entry + dir_sep
             continue
 
-        # if the best directory to append to the fixed path last loop still isn't one that
-        # exists, we're not finding the file; return ""
-        if not os.path.exists(fixed_path):
-            return ""
-
-        lc_tp_entry = tp_entry.lower()
-
+        lc_tp_entry     = tp_entry.lower()
         best_dir_to_add = tp_entry         # either the correct dir or simply from the original path
         curr_dir        = os.listdir(fixed_path)
 
@@ -164,6 +158,11 @@ def fuzzy_search(track_path: str, music_dir: str, dir_sep: str, contains=False) 
                 best_dir_to_add = dir_entry
 
         fixed_path += best_dir_to_add + dir_sep
+
+        # if the best directory to append to the fixed path last loop still isn't one that
+        # exists, we're not finding the file; return ""
+        if not os.path.exists(fixed_path):
+            return ""
 
     # loop adds trailing dir_sep, remove
     fixed_path = fixed_path[:-1]

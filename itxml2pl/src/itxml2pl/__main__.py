@@ -274,8 +274,8 @@ def parse_xml(cli_opts: dict):
                     path = corrected_path
 
             # execution reaches here if either:
-            # 1) file exists
-            # 2) check_exists != warn AND check_exists != error
+            # 1) file exists, OR
+            # 2) check_exists == "none"
             track_paths.append(path+"\n")
 
         if pl_incomplete:
