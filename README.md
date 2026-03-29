@@ -106,7 +106,7 @@ You'll also want the web client, as that gives you a nice GUI for Jellyfin, acce
         ./pv/bin/pip install ./itxml2pl
         ```
     
-    3. Creat [symbolic link](https://en.wikipedia.org/wiki/Symbolic_link) to the non-privileged part of [`$PATH`](https://en.wikipedia.org/wiki/PATH_(variable))
+    3. Create a [symbolic link](https://en.wikipedia.org/wiki/Symbolic_link) to the non-privileged part of [`$PATH`](https://en.wikipedia.org/wiki/PATH_(variable))
         ```
         ln -s "$PWD/pv/bin/itxml2pl" ~/.local/bin/itxml2pl
         ```
@@ -117,7 +117,7 @@ You'll also want the web client, as that gives you a nice GUI for Jellyfin, acce
         -x <path to Library.xml> \
         -m <path to music dir on server> \
         [-d <path to music within Docker container>]
-        -p playlist_dir \
+        -p playlist_dir
     ```
     
     #### Usage notes
