@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+import json
 import shutil
 from math import ceil
 from datetime import datetime
@@ -135,7 +136,7 @@ def parse_cli_args() -> dict:
                     dest="show_ext_map",
                     required=False,
                     help="Show mapping of file types to file extensions \
-                        used in the program and exit."
+                        used in the program in JSON format, and exit."
                     )
 
     ap.add_argument('--debug',
@@ -162,9 +163,7 @@ def show_ext_map(fe_map: dict):
     Prints the FILE_EXT_MAP `dict` in a human-friendly way.
     FILE_EXT_MAP can be found in `parse_fns.py`
     """
-    print("\nMapping of file types to extensions used:\n")
-    for key, value in fe_map.items():
-        print(f'\t{key:<28}->{value:>6}')
+    print(json.dumps(fe_map, indent=4))
 
     print()
 
@@ -183,6 +182,8 @@ def ensure_slash(opts: dict) -> dict:
     path_args = ['playlist_dir', 'music_dir', 'docker_dir']
 
     for arg in path_args:
+        if not opts[arg]:
+            continue
         if opts[arg][-1] != fp_slash:
             opts[arg] += fp_slash
 
