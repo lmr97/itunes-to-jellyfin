@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "itxml2pl"
-version = "1.1"
+version = "1.2"
 authors = [
     { name = "Martin Reid", email = "lmreid1997@gmail.com" },
 ]
@@ -16,6 +16,9 @@ license-files = ["../LICENSE"]
 
 [project.urls]
 Homepage = "https://github.com/lmr97/itunes-to-jellyfin"
+
+[tool.setuptools.package-data]
+itxml2pl = ["*.json"]
 
 [project.scripts]
 itxml2pl = "itxml2pl.__main__:main"
