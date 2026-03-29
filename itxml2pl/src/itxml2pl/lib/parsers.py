@@ -5,28 +5,22 @@ Library.xml file produced by iTunes when you export
 your library.
 """
 import os
+import urllib.parse as url
+import importlib.resources as mod_data
+import json
 from lxml import etree
+import itxml2pl
 from itxml2pl.lib.sanitizers import sanitize_path
 
-# these are the extensions iTunes uses when downloading songs
-FILE_EXT_MAP = {
-    'MPEG audio file':             '.mp3',
-    'MPEG-4 video file':           '.m4a',
-    'MPEG-4 audio file':           '.mp4',
-    'Purchased MPEG-4 video file': '.m4v',
-    'AAC audio file':              '.m4a',
-    'Purchased AAC audio file':    '.m4a',
-    'Matched AAC audio file':      '.m4a',
-    'AIFF audio file':             '.aif',
-    'WAV audio file':              '.wav'
-}
-
+# file is located at (with repo as root): /itxml2pl/src/itxml2pl/file-ext.json
+json_str = mod_data.files(itxml2pl) / "file-ext.json"
+FILE_EXT_MAP = json.load(json_str.open())
 
 ########################
 # STANDALONE FUNCTIONS #
 ########################
 
-def get_pl_folders(playlists: etree.Element) -> dict:
+def get_pl_folders(playlists: etree.ElementBase) -> dict:
     """
     Scans the list of playlists, and assembles a `dict` where each 
     key-value pair following form:
@@ -55,14 +49,17 @@ def get_pl_folders(playlists: etree.Element) -> dict:
 
 
 
-def lookup_song(track_id_el: etree.Element, 
-                tracks_el: etree.Element) -> etree.Element:
+def lookup_song(track_id_el: etree.ElementBase, 
+                tracks_el: etree.ElementBase) -> etree.ElementBase | None:
     """
     Uses a track ID element from a playlist to get the song info
     out of the all-tracks element.
     """
-    track_id = track_id_el.find("integer").text
-    track    = tracks_el.xpath(f"key[text()='{track_id}']/following-sibling::dict[1]")[0]
+    track_id = track_id_el.find("integer")
+    if track_id is None:
+        return None
+    
+    track = tracks_el.xpath(f"key[text()='{track_id.text}']/following-sibling::dict[1]")[0]
 
     return track
 
@@ -179,7 +176,7 @@ class _LibraryEntry:
     """
     Base class for both Track and Playlist.
     """
-    def __init__(self, el: etree.Element):
+    def __init__(self, el: etree.ElementBase):
         self.el   = el
         self.name = self.get_str_attr("Name", False)
 
@@ -227,19 +224,33 @@ class _LibraryEntry:
 
 class Track(_LibraryEntry):
     """
-    Wrapper class for functions to parse Track `etree.Element`s
+    Wrapper class for functions to parse Track `etree.ElementBase`s
     out of the `Library.xml` file.
     """
-    def __init__(self, song_el: etree.Element):
+    def __init__(self, song_el: etree.ElementBase, music_folder_from_file: str):
 
         super().__init__(song_el)
         self.name       = sanitize_path(self.name, "Name")
+        self.rel_path   = self._get_rel_path(music_folder_from_file)
         self.artist     = self.get_str_attr("Artist")
         self.album      = self.get_str_attr("Album")
         self.track_num  = self._get_track_num()
         self.artist_dir = self._get_artist_dir()
         self.file_ext   = self._get_file_ext()
 
+
+    def _get_rel_path(self, default_dir: str) -> str | None:
+        location = self.el.xpath("key[text()='Location']/following-sibling::string[1]")
+        
+        if not len(location):
+            return None
+        
+        rel_path_uri = location[0].text.replace(default_dir, "")
+
+        # the <Location> value is is given in the XML in URI format
+        rel_path = sanitize_path(url.unquote(rel_path_uri), "Location")
+        
+        return rel_path
 
 
     def _get_track_num(self) -> str:
@@ -290,8 +301,7 @@ class Track(_LibraryEntry):
             file_ext = FILE_EXT_MAP[file_type]
         else:
             print("\033[0;33mWarning\033[0m: unable to determine file extention for:")
-            print(f"\t'{self.name}' by \
-                    {self.artist}")
+            print(f"\t'{self.name}' by {self.artist}")
             print("\033[0;33mWarning\033[0m: song not added to playlist")
 
         return file_ext
@@ -338,6 +348,13 @@ class Track(_LibraryEntry):
 
         # if all else fails...
         return "Unknown Artist"
+    
+
+    def compose_path(self, dir_sep: str) -> str:
+        if self.rel_path:
+            return self.rel_path
+        
+        return dir_sep.join([self.artist_dir, self.album, self.track_num + self.name]) #+ self.file_ext
 
 
 
@@ -348,11 +365,11 @@ class Playlist(_LibraryEntry):
 
     While it would seem intuitive to have `Playlist` objects
     composed of a set of `Track` objects, the conversion
-    adds little over simply processing the `etree.Element` object
+    adds little over simply processing the `etree.ElementBase` object
     directly, and in fact would add a lot of overhead for this
     application.
     """
-    def __init__(self, pl_el: etree.Element):
+    def __init__(self, pl_el: etree.ElementBase):
         super().__init__(pl_el)
         self.id         = self.get_str_attr("Playlist Persistent ID", False)
         self.parent_id  = self.get_str_attr("Parent Persistent ID", False)      # parent ID
