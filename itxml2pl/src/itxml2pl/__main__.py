@@ -55,6 +55,7 @@ correct directory structure is there for you to use as you see fit.
 import sys
 import os
 from datetime import timezone, datetime
+import traceback
 from lxml import etree
 from itxml2pl.lib import gen_utils, parsers, sanitizers
 from itxml2pl.lib.parsers import Track, Playlist    # I want these classes by name
@@ -144,6 +145,8 @@ def parse_xml(cli_opts: dict):
         print(f"Error text: {repr(ose)}")
         raise OSError from ose
 
+    # directory given in the Library.xml
+    default_dir = library_dom.xpath("dict/key[text()='Music Folder']/following-sibling::string[1]")[0].text
     all_tracks  = library_dom.find("dict/dict")             # keep tracks as a single <dict> element
     playlists   = library_dom.findall("dict/array/dict")    # Playlists == <dict>s, list for iter
     pl_folders  = parsers.get_pl_folders(playlists)         # the playlists folders made in iTunes
@@ -219,12 +222,11 @@ def parse_xml(cli_opts: dict):
         for tr_id_el in pl_tracks:
 
             tr_el = parsers.lookup_song(tr_id_el, all_tracks)
-            tr    = Track(tr_el)
+            tr    = Track(tr_el, default_dir)
 
             # path to check for file existence; may not be the same as path included in
             # playlist file if Jellyfin runs in a container.
-            rel_path   = dir_sep.join([tr.artist_dir, tr.album, tr.track_num + tr.name]) \
-                            + tr.file_ext
+            rel_path   = tr.compose_path(dir_sep)
             check_path = cli_opts['music_dir'] + rel_path
 
 
@@ -399,6 +401,7 @@ def main():
 
         except Exception as e:
             print(f"\033[0;31mUnexpected error encountered\033[0m: {repr(e)}")
+            traceback.print_exc()
             print("\033[0;31mTerminating on error...\033[0m")
             sys.exit(1)
 
